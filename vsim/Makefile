@@ -14,7 +14,7 @@ CFG         := ${CORE}_config
 CORE_NAME = $(shell echo $(CORE) | tr a-z A-Z)
 core_name = $(shell echo $(CORE) | tr A-Z a-z)
 
-all: run_test
+all: clean install run_test
 
 install: 
 	mkdir -p ${SIM_DIR}/install/tb
