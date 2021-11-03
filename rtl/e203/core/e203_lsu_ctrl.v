@@ -26,9 +26,9 @@
 `include "e203_defines.v"
 
 module e203_lsu_ctrl(
-  input  commit_mret,
-  input  commit_trap,
-  output lsu_ctrl_active,
+  input  commit_mret, //来自exu
+  input  commit_trap, //来自exu
+  output lsu_ctrl_active, //发送到exu
   `ifdef E203_HAS_ITCM //{
   input [`E203_ADDR_SIZE-1:0] itcm_region_indic,
   `endif//}
@@ -40,46 +40,46 @@ module e203_lsu_ctrl(
   //////////////////////////////////////////////////////////////
   // The LSU Write-Back Interface
   output lsu_o_valid, // Handshake valid
-  input  lsu_o_ready, // Handshake ready
-  output [`E203_XLEN-1:0] lsu_o_wbck_wdat,
-  output [`E203_ITAG_WIDTH -1:0] lsu_o_wbck_itag,
+  input  lsu_o_ready, // Handshake ready //来自exu
+  output [`E203_XLEN-1:0] lsu_o_wbck_wdat, //发送到exu
+  output [`E203_ITAG_WIDTH -1:0] lsu_o_wbck_itag, //发送到exu
   output lsu_o_wbck_err , // The error no need to write back regfile
-  output lsu_o_cmt_buserr, // The bus-error exception generated
-  output [`E203_ADDR_SIZE -1:0] lsu_o_cmt_badaddr,
-  output lsu_o_cmt_ld,
-  output lsu_o_cmt_st,
+  output lsu_o_cmt_buserr, // The bus-error exception generated //发送到exu 产生存储器访问错误提示信号
+  output [`E203_ADDR_SIZE -1:0] lsu_o_cmt_badaddr, //发送到exu  产生存储器访问错误的访存地址
+  output lsu_o_cmt_ld, //发送到exu  产生load指令执行信号，给交付接口，用于产生读存储器错误异常
+  output lsu_o_cmt_st, //发送到exu  产生store指令执行信号，给交付接口，用于产生写存储器异常或AMO异常
   
 
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
   // The AGU ICB Interface to LSU-ctrl
   //    * Bus cmd channel
-  input                          agu_icb_cmd_valid, // Handshake valid
-  output                         agu_icb_cmd_ready, // Handshake ready
-  input  [`E203_ADDR_SIZE-1:0]   agu_icb_cmd_addr, // Bus transaction start addr 
-  input                          agu_icb_cmd_read,   // Read or write
-  input  [`E203_XLEN-1:0]        agu_icb_cmd_wdata, 
-  input  [`E203_XLEN/8-1:0]      agu_icb_cmd_wmask, 
-  input                          agu_icb_cmd_lock,
-  input                          agu_icb_cmd_excl,
-  input  [1:0]                   agu_icb_cmd_size,
+  input                          agu_icb_cmd_valid, // Handshake valid //来自exu
+  output                         agu_icb_cmd_ready, // Handshake ready //发送到exu
+  input  [`E203_ADDR_SIZE-1:0]   agu_icb_cmd_addr, // Bus transaction start addr  //来自exu
+  input                          agu_icb_cmd_read,   // Read or write //来自exu
+  input  [`E203_XLEN-1:0]        agu_icb_cmd_wdata,  //来自exu
+  input  [`E203_XLEN/8-1:0]      agu_icb_cmd_wmask,  //来自exu
+  input                          agu_icb_cmd_lock, //来自exu
+  input                          agu_icb_cmd_excl, //来自exu
+  input  [1:0]                   agu_icb_cmd_size, //来自exu
            // Several additional side channel signals
            //   Indicate LSU-ctrl module to
            //     return the ICB response channel back to AGU
            //     this is only used by AMO or unaligned load/store 1st uop
            //     to return the response
-  input                          agu_icb_cmd_back2agu, 
+  input                          agu_icb_cmd_back2agu,  //来自exu
            //   Sign extension or not
-  input                          agu_icb_cmd_usign,
+  input                          agu_icb_cmd_usign, //来自exu
            //   RD Regfile index
-  input  [`E203_ITAG_WIDTH -1:0] agu_icb_cmd_itag,
+  input  [`E203_ITAG_WIDTH -1:0] agu_icb_cmd_itag, //来自exu
 
   //    * Bus RSP channel
-  output                         agu_icb_rsp_valid, // Response valid 
-  input                          agu_icb_rsp_ready, // Response ready
-  output                         agu_icb_rsp_err  , // Response error
-  output                         agu_icb_rsp_excl_ok,// Response exclusive okay
-  output [`E203_XLEN-1:0]        agu_icb_rsp_rdata,
+  output                         agu_icb_rsp_valid, // Response valid  //发送到exu
+  input                          agu_icb_rsp_ready, // Response ready //来自exu
+  output                         agu_icb_rsp_err  , // Response error //发送到exu
+  output                         agu_icb_rsp_excl_ok,// Response exclusive okay //发送到exu
+  output [`E203_XLEN-1:0]        agu_icb_rsp_rdata, //发送到exu
 
 `ifdef E203_HAS_NICE//{
   //////////////////////////////////////////////////////////////

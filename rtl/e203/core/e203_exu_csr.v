@@ -229,14 +229,14 @@ assign status_r[30:23] = 8'b0; // Reserved
 assign status_r[22:17] = 6'b0;               // TSR--MPRV
 assign status_r[16:15] = status_xs_r;                        // XS
 assign status_r[14:13] = status_fs_r;                        // FS
-assign status_r[12:11] = 2'b11;              // MPP 
+assign status_r[12:11] = 2'b11;              // MPP                   //异常发生前的工作模式
 assign status_r[10:9]  = 2'b0; // Reserved
-assign status_r[8]     = 1'b0;               // SPP
-assign status_r[7]     = status_mpie_r;                      // MPIE
+assign status_r[8]     = 1'b0;               // SPP 
+assign status_r[7]     = status_mpie_r;                      // MPIE  //被更新为异常发生前全局中断使能的值
 assign status_r[6]     = 1'b0; // Reserved
 assign status_r[5]     = 1'b0;               // SPIE 
 assign status_r[4]     = 1'b0;               // UPIE 
-assign status_r[3]     = status_mie_r;                       // MIE
+assign status_r[3]     = status_mie_r;                       // MIE   //全局中断使能
 assign status_r[2]     = 1'b0; // Reserved
 assign status_r[1]     = 1'b0;               // SIE 
 assign status_r[0]     = 1'b0;               // UIE 
@@ -650,14 +650,14 @@ assign h_mode = 1'b0;
 assign m_mode = 1'b1;
 assign read_csr_dat = `E203_XLEN'b0 
                //| ({`E203_XLEN{rd_ustatus  }} & csr_ustatus  )
-               | ({`E203_XLEN{rd_mstatus  }} & csr_mstatus  )
-               | ({`E203_XLEN{rd_mie      }} & csr_mie      )
-               | ({`E203_XLEN{rd_mtvec    }} & csr_mtvec    )
-               | ({`E203_XLEN{rd_mepc     }} & csr_mepc     )
+               | ({`E203_XLEN{rd_mstatus  }} & csr_mstatus  )         //机器模式状态寄存器
+               | ({`E203_XLEN{rd_mie      }} & csr_mie      )         //用于屏蔽外部中断信号 局部使能
+               | ({`E203_XLEN{rd_mtvec    }} & csr_mtvec    )         //异常*入口*基地值寄存器 可读可写
+               | ({`E203_XLEN{rd_mepc     }} & csr_mepc     )         //异常*返回*地址寄存器  利用它保存的pc值可以在异常结束时返回被停止执行的程序点
                | ({`E203_XLEN{rd_mscratch }} & csr_mscratch )
-               | ({`E203_XLEN{rd_mcause   }} & csr_mcause   )
-               | ({`E203_XLEN{rd_mbadaddr }} & csr_mbadaddr )
-               | ({`E203_XLEN{rd_mip      }} & csr_mip      )
+               | ({`E203_XLEN{rd_mcause   }} & csr_mcause   )         //机器模式异常原因寄存器
+               | ({`E203_XLEN{rd_mbadaddr }} & csr_mbadaddr )         //异常值寄存器
+               | ({`E203_XLEN{rd_mip      }} & csr_mip      )         //反应不同类型中断的等带状态
                | ({`E203_XLEN{rd_misa     }} & csr_misa      )
                | ({`E203_XLEN{rd_mvendorid}} & csr_mvendorid)
                | ({`E203_XLEN{rd_marchid  }} & csr_marchid  )
