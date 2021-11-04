@@ -28,38 +28,38 @@
 
 module e203_exu_disp(
   input  wfi_halt_exu_req,  //接收一个来自交付模块的暂停请求
-  output wfi_halt_exu_ack,  //发送一个暂停请求去交付模块
+  output wfi_halt_exu_ack,  //确认交付模块发来的数据已经接受无误
 
-  input  oitf_empty, //数据相关性判断
+  input  oitf_empty, //数据相关性判断 高电平时表示没有长指令在执行
   input  amo_wait,//来自exu的lsuagu，不知道干麼的  如果为1，是不是表示有指令没处理完？？？？？？？？？？？？？？？？？？？
   //////////////////////////////////////////////////////////////
   // The operands and decode info from dispatch
-  input  disp_i_valid, // Handshake valid //来自ifu的ifetch的握手信号
-  output disp_i_ready, // Handshake ready  //发送到ifu的ifetch的握手信号
+  input  disp_i_valid, // Handshake valid //ifetch向disp发送读写反馈请求信号
+  output disp_i_ready, // Handshake ready  //disp向ifetch返回读写反馈接受信号
 
   // The operand 1/2 read-enable signals and indexes
   input  disp_i_rs1x0,  //该指令原操作数1的寄存器索引为x0 来自decode
   input  disp_i_rs2x0,  //该指令原操作数2的寄存器索引为x0 来自decode
   input  disp_i_rs1en,  //需要读取原操作数1 来自decode
   input  disp_i_rs2en,  //需要读取原操作数2 来自decode
-  input  [`E203_RFIDX_WIDTH-1:0] disp_i_rs1idx,//该指令原操作数1的寄存器索引 来自ifu的ifetch
-  input  [`E203_RFIDX_WIDTH-1:0] disp_i_rs2idx,//该指令原操作数2的寄存器索引 来自ifu的ifetch
+  input  [`E203_RFIDX_WIDTH-1:0] disp_i_rs1idx,//该指令原操作数1的寄存器索引 来自ifetch 也可以来自decode，只是decode的索引悬空了
+  input  [`E203_RFIDX_WIDTH-1:0] disp_i_rs2idx,//该指令原操作数2的寄存器索引 来自ifetch
   input  [`E203_XLEN-1:0] disp_i_rs1, //来自通用寄存器的结果
   input  [`E203_XLEN-1:0] disp_i_rs2, //来自通用寄存器的结果
-  input  disp_i_rdwen, //来自decode，指令需要写结果操作数到寄存器
+  input  disp_i_rdwen, //来自decode，指令需要写结果操作数到寄存器  应该也可以来自minidecode，只是minidecode的被悬空了
   input  [`E203_RFIDX_WIDTH-1:0] disp_i_rdidx,  //来自decode，该指令结果寄存器索引
   input  [`E203_DECINFO_WIDTH-1:0]  disp_i_info,    //来自decode，该指令信息info bus
   input  [`E203_XLEN-1:0] disp_i_imm,  //来自decode，该指令使用的立即数
-  input  [`E203_PC_SIZE-1:0] disp_i_pc,  //来自decode，该指令的pc值
-  input  disp_i_misalgn,  //来自decode，取址非对齐异常
-  input  disp_i_buserr ,  //来自decode，取址异常错误
-  input  disp_i_ilegl  ,  //来自decode，这条是违法指令
+  input  [`E203_PC_SIZE-1:0] disp_i_pc,  //来自pc寄存器
+  input  disp_i_misalgn,  //始终是0
+  input  disp_i_buserr ,  //来自取址后的寄存器
+  input  disp_i_ilegl  ,  //来自取址后的寄存器
 
 
   //////////////////////////////////////////////////////////////
   // Dispatch to ALU
-  output disp_o_alu_valid, //发送给alu的握手信号
-  input  disp_o_alu_ready,  //来自alu的握手信号
+  output disp_o_alu_valid, //disp向alu发送读写请求信号
+  input  disp_o_alu_ready,  //alu向disp返回的读写接受信号
 
   input  disp_o_alu_longpipe, //暂时不知道是什么信号，可能是提示这是一条长指令？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？
 
@@ -101,7 +101,7 @@ module e203_exu_disp(
   output [`E203_RFIDX_WIDTH-1:0] disp_oitf_rs3idx, //派遣指令rs3操作数的索引
   output [`E203_RFIDX_WIDTH-1:0] disp_oitf_rdidx , //派遣指令rd操作数的索引
 
-  output [`E203_PC_SIZE-1:0] disp_oitf_pc ,
+  output [`E203_PC_SIZE-1:0] disp_oitf_pc ,  //派遣指令的pc值，来自pc寄存器
 
   
   input  clk,
@@ -138,7 +138,7 @@ module e203_exu_disp(
   `define E203_DECINFO_GRP_FPU_FDIV     `E203_DECINFO_GRP_FPU_WIDTH'd2
   `define E203_DECINFO_GRP_FPU_FMIS     `E203_DECINFO_GRP_FPU_WIDTH'd3*/
 
-  wire disp_csr = (disp_i_info_grp == `E203_DECINFO_GRP_CSR); //如果info bus的后三位 == 3 递交一条普通指令？？？？？？
+  wire disp_csr = (disp_i_info_grp == `E203_DECINFO_GRP_CSR); //如果info bus的后三位 == 3 递交一条csr指令？？？？？？
 
   wire disp_alu_longp_prdt = (disp_i_info_grp == `E203_DECINFO_GRP_AGU)  //如果info bus的后三位 == 1 递交一条长指令？？？？？
                              ;
@@ -153,8 +153,8 @@ module e203_exu_disp(
   //   wire   disp_i_ready_pos = disp_alu & disp_o_alu_ready;
   //   assign disp_o_alu_valid = disp_alu & disp_i_valid_pos; 
   wire disp_i_valid_pos;  //发送给alu的握手信号
-  wire   disp_i_ready_pos = disp_o_alu_ready;   //来自alu的握手信号
-  assign disp_o_alu_valid = disp_i_valid_pos;   //发送给alu的握手信号
+  wire   disp_i_ready_pos = disp_o_alu_ready;   //alu向disp返回的读写请求
+  assign disp_o_alu_valid = disp_i_valid_pos;   //发送给alu的握手信号，表示要向alu派遣指令
   
   //////////////////////////////////////////////////////////////
   // The Dispatch Scheme Introduction for two-pipeline stage
@@ -215,7 +215,7 @@ module e203_exu_disp(
 
   // The WFI halt exu ack will be asserted when the OITF is empty
   //    and also there is no AMO oustanding uops 
-  assign wfi_halt_exu_ack = oitf_empty & (~amo_wait);  //发送一个暂停，也不知道为什么要发一个暂停？？？？？？？？？？？？？？？？？？？？？？
+  assign wfi_halt_exu_ack = oitf_empty & (~amo_wait);  //确认来自交付模块的信息已经接受无误
 
   wire disp_condition =                     //满足派遣的条件就可以进行派遣
                  // To be more conservtive, any accessing CSR instruction need to wait the oitf to be empty.
@@ -237,8 +237,8 @@ module e203_exu_disp(
                // we always assume the LSU will need oitf ready
                & (disp_alu_longp_prdt ? disp_oitf_ready : 1'b1);
 
-  assign disp_i_valid_pos = disp_condition & disp_i_valid;    //来自ifetch的握手信号，且没有相关性，就给alu发送一个握手信号
-  assign disp_i_ready     = disp_condition & disp_i_ready_pos; //反馈给ifetch的握手信号
+  assign disp_i_valid_pos = disp_condition & disp_i_valid;    //说明现在满足派遣的条件，要给alu发宋读写请求了
+  assign disp_i_ready     = disp_condition & disp_i_ready_pos; //说明ifetch发来的指令已经交付和执行完了，就给ifetch返回一个读写请求
 
 
   wire [`E203_XLEN-1:0] disp_i_rs1_msked = disp_i_rs1 & {`E203_XLEN{~disp_i_rs1x0}};//如果译码的结果是0那就取0，如果是1那就取通用寄存器给的结果

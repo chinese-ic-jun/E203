@@ -26,8 +26,8 @@
 `include "e203_defines.v"
 
 module e203_exu_regfile(
-  input  [`E203_RFIDX_WIDTH-1:0] read_src1_idx, // 从ifetch计算出的指令源操作数rs1的索引  在读数据时候用
-  input  [`E203_RFIDX_WIDTH-1:0] read_src2_idx, // 从ifetch计算出的指令源操作数rs2的索引  在读数据时候用
+  input  [`E203_RFIDX_WIDTH-1:0] read_src1_idx, // 从minidecode的指令源操作数rs1的索引  在读数据时候用
+  input  [`E203_RFIDX_WIDTH-1:0] read_src2_idx, // 从minidecode的指令源操作数rs2的索引  在读数据时候用
   output [`E203_XLEN-1:0] read_src1_dat,  // 取出的源操作数的值
   output [`E203_XLEN-1:0] read_src2_dat,  // 取出的源操作数的值
 
@@ -67,7 +67,7 @@ module e203_exu_regfile(
           `endif//}
         end
         else begin: rfno0
-            assign rf_wen[i] = wbck_dest_wen & (wbck_dest_idx == i) ;
+            assign rf_wen[i] = wbck_dest_wen & (wbck_dest_idx == i) ; //打开写入使能
           `ifdef E203_REGFILE_LATCH_BASED //{
             e203_clkgate u_e203_clkgate(
               .clk_in  (clk  ),
