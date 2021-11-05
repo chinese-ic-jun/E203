@@ -31,7 +31,7 @@ module e203_exu_wbck(
 
   //////////////////////////////////////////////////////////////
   // The ALU Write-Back Interface
-  input  alu_wbck_i_valid, // Handshake valid //alu向wbck发起读写反馈请求
+  input  alu_wbck_i_valid, // Handshake valid //alu表明有指令需要写回
   output alu_wbck_i_ready, // Handshake ready //wbck向alu返回读写反馈请求
   input  [`E203_XLEN-1:0] alu_wbck_i_wdat, // 从alu写回的数据值
   input  [`E203_RFIDX_WIDTH-1:0] alu_wbck_i_rdidx, // 写回的寄存器索引值
@@ -40,7 +40,7 @@ module e203_exu_wbck(
 
   //////////////////////////////////////////////////////////////
   // The Longp Write-Back Interface
-  input  longp_wbck_i_valid, // Handshake valid //longpwbck向wbck发起读写反馈请求
+  input  longp_wbck_i_valid, // Handshake valid //表明有长指令需要写回
   output longp_wbck_i_ready, // Handshake ready //wbck向longpwbck返回读写反馈请求
   input  [`E203_FLEN-1:0] longp_wbck_i_wdat, // 从longpwbck写回的数据值
   input  [5-1:0] longp_wbck_i_flags, // 从longpwbck写回标志
@@ -64,11 +64,11 @@ module e203_exu_wbck(
   //  long pipeline instruction writing-back
   //    * Since ALU is the 1 cycle instructions, it have lowest 
   //      priority in arbitration
-  wire wbck_ready4alu = (~longp_wbck_i_valid); //表示没有接收到来自longpebck模块的握手信号
-  wire wbck_sel_alu = alu_wbck_i_valid & wbck_ready4alu; //表示只接收到了alu模块的握手信号没有longpwbck的握手信号
+  wire wbck_ready4alu = (~longp_wbck_i_valid); //此时没有长指令正在写回
+  wire wbck_sel_alu = alu_wbck_i_valid & wbck_ready4alu; //有alu指令需要写回
   // The Long-pipe instruction can always write-back since it have high priority 
   wire wbck_ready4longp = 1'b1;  //表面长指令具有最高优先级总是可以写回
-  wire wbck_sel_longp = longp_wbck_i_valid & wbck_ready4longp; //表示接收到了longpwbck模块的握手信号
+  wire wbck_sel_longp = longp_wbck_i_valid & wbck_ready4longp; //有长指令需要写回
 
 
 
@@ -86,7 +86,7 @@ module e203_exu_wbck(
   assign alu_wbck_i_ready   = wbck_ready4alu   & wbck_i_ready; //没有接收到longpwbck的握手信号，就反馈一个握手信号给alu，表示握手成功
   assign longp_wbck_i_ready = wbck_ready4longp & wbck_i_ready;  //总是1，总是握手成功，总是可以写回，优先级最高
 
-  assign wbck_i_valid = wbck_sel_alu ? alu_wbck_i_valid : longp_wbck_i_valid; //应该是表示接收到了哪个握手信号
+  assign wbck_i_valid = wbck_sel_alu ? alu_wbck_i_valid : longp_wbck_i_valid; //接收到alu还是长指令要写回
   `ifdef E203_FLEN_IS_32//{
   assign wbck_i_wdat  = wbck_sel_alu ? alu_wbck_i_wdat  : longp_wbck_i_wdat;  //待写入数据来自alu还是longpebck
   `else//}{
@@ -104,7 +104,7 @@ module e203_exu_wbck(
 
   wire wbck_o_ena   = rf_wbck_o_valid & rf_wbck_o_ready;  //只要接到了请求就打开写回的使能
 
-  assign rf_wbck_o_ena   = wbck_o_ena & (~wbck_i_rdfpu); //写回的不是fpu且接收到了握手信号就打开使能
+  assign rf_wbck_o_ena   = wbck_o_ena & (~wbck_i_rdfpu); //接收到有指令要写回就打开使能
   assign rf_wbck_o_wdat  = wbck_i_wdat[`E203_XLEN-1:0]; //写回的数据，写道rf通用寄存器
   assign rf_wbck_o_rdidx = wbck_i_rdidx;  // 写回数据的索引
 

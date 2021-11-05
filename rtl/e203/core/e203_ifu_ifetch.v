@@ -106,10 +106,10 @@ module e203_ifu_ifetch(
   input  rst_n
   );
 
-  wire ifu_req_hsked  = (ifu_req_valid & ifu_req_ready) ;   //与ift2icb握手成功提示信号 表示ift2icb接收并接受了ifetch的读写请求
-  wire ifu_rsp_hsked  = (ifu_rsp_valid & ifu_rsp_ready) ;   //与ift2icb握手成功提示信号 表示ifetch接收并接受了ift2icb的读写请求
-  wire ifu_ir_o_hsked = (ifu_o_valid & ifu_o_ready) ;    //与disp握手成功提示信号 表示disp接收并接收了ifetch的读写请求
-  wire pipe_flush_hsked = pipe_flush_req & pipe_flush_ack;  //表示接收到了branchslv，excp和longpwbck的流水线冲刷请求
+  wire ifu_req_hsked  = (ifu_req_valid & ifu_req_ready) ;   //ifetch向ift2icb发送读写请求，表示在这个过程中有取址正在进行
+  wire ifu_rsp_hsked  = (ifu_rsp_valid & ifu_rsp_ready) ;   //ift2icb向ifetch发送的读写请求，表示在这个过程中取址完成需要把指令信息写入流水线寄存器中
+  wire ifu_ir_o_hsked = (ifu_o_valid & ifu_o_ready) ;    //表示在这个过程将流水线寄存器中的指令发送到disp并在alu执行完了回到disp给了ifetch一个反馈
+  wire pipe_flush_hsked = pipe_flush_req & pipe_flush_ack;  //收到了branchslv，excp和longpwbck的流水线冲刷请求，表示在这个过程中要冲刷流水线
 
   
  // The rst_flag is the synced version of rst_n
@@ -132,7 +132,7 @@ module e203_ifu_ifetch(
                                                          //2.如果之前不是复位状态且复位表示0，那就保持非复位状态
                                                          //3.如果之前不是复位状态且复位标志是1，那就设置成复位状态
 
-  sirv_gnrl_dfflr #(1) reset_req_dfflr (reset_req_ena, reset_req_nxt, reset_req_r 1, clk, rst_n);
+  sirv_gnrl_dfflr #(1) reset_req_dfflr (reset_req_ena, reset_req_nxt, reset_req_r, clk, rst_n);
 
   wire ifu_reset_req = reset_req_r;  //复位请求信号
 
@@ -154,7 +154,7 @@ module e203_ifu_ifetch(
      //    * Currently halt_ack is not asserting
      //    * Currently the ifetch REQ channel is ready, means
      //        there is no oustanding transactions
-  wire ifu_no_outs;
+  wire ifu_no_outs;  //没有取址正在进行，正在将取址信息写入流水线寄存器
   assign halt_ack_set = ifu_halt_req & (~halt_ack_r) & ifu_no_outs; //接收到了来自excp暂停请求，且之前不是暂停的状态，就需要设置暂停
      // The halt_ack_r valid is cleared when 
      //    * Currently halt_ack is asserting
@@ -168,7 +168,7 @@ module e203_ifu_ifetch(
                                                        //4.如果之前不是暂停状态且接收到暂停请求，那就设置成暂停状态
   sirv_gnrl_dfflr #(1) halt_ack_dfflr (halt_ack_ena, halt_ack_nxt, halt_ack_r, clk, rst_n);
 
-  assign ifu_halt_ack = halt_ack_r;  //如果是1，就表示接收到了暂停请求
+  assign ifu_halt_ack = halt_ack_r;  //如果是1，表示正处于暂停状态
 
 
   //////////////////////////////////////////////////////////////
@@ -192,57 +192,51 @@ module e203_ifu_ifetch(
       // The dly_flush will be set when
       //    * There is a flush requst is coming, but the ifu
       //        is not ready to accept new fetch request
-   wire dly_flush_r;
-   assign dly_flush_set = pipe_flush_req & (~ifu_req_hsked);  //如果接收到了冲刷请求且ift2icb没有接收到ifetch的读写请求，那就要设置冲刷流水线使能
+   wire dly_flush_r; //处于流水线冲刷阶段
+   assign dly_flush_set = pipe_flush_req & (~ifu_req_hsked);  //有冲刷请求且没有取址正在进行，那就要设置冲刷流水线
       // The dly_flush_r valid is cleared when 
       //    * The delayed flush is issued
-   assign dly_flush_clr = dly_flush_r & ifu_req_hsked;   //如果之前是冲刷流水线的状态且握手成功那就要清除冲刷流水线的状态
+   assign dly_flush_clr = dly_flush_r & ifu_req_hsked;   //已经处于冲刷状态且有新的取址正在进行就要清除流水线冲刷状态
    assign dly_flush_ena = dly_flush_set | dly_flush_clr; //设置和清除都能成为使能
-   assign dly_flush_nxt = dly_flush_set | (~dly_flush_clr); //1.如果之前是处于冲刷状态且握手成功，那就清除流水线冲刷的状态变位不冲刷状态
-                                                            //2.如果握手不成功，不论之前是什么状态，只要就冲刷请求就设置为冲刷状态，如果没有，就保持原来的状态
-                                                            //3.如果之前是处于不冲刷状态且握手成功，那就保持不冲刷状态
+   assign dly_flush_nxt = dly_flush_set | (~dly_flush_clr);
 
    sirv_gnrl_dfflr #(1) dly_flush_dfflr (dly_flush_ena, dly_flush_nxt, dly_flush_r, clk, rst_n);
 
-   wire dly_pipe_flush_req = dly_flush_r;    //流水线冲刷信号
-   wire pipe_flush_req_real = pipe_flush_req | dly_pipe_flush_req;  //流水线冲刷信号或者有流水线冲刷请求，表现了流水线的
+   wire dly_pipe_flush_req = dly_flush_r;    //处于流水线冲刷阶段
+   wire pipe_flush_req_real = pipe_flush_req | dly_pipe_flush_req;  //处于流水线冲刷阶段且有冲刷请求就要真正的冲刷流水线
 
 
 
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
   // The IR register to be used in EXU for decoding   //关于ir寄存器的都是猜测
-  wire ir_valid_set; //表示接收到了ift2icb发来的指令且没有流水线冲刷，可以把接收到的指令存到指令寄存器中  相反与一个寄存器使能
-  wire ir_valid_clr; //表示disp递交了指令，需要把指令寄存器中的指令擦除
+  wire ir_valid_set; //处于指令需要写入流水线寄存器的状态
+  wire ir_valid_clr; //表示disp递交了指令或者产生了流水线冲刷，需要把指令寄存器中的指令擦除
   wire ir_valid_ena; //寄存和擦除都可以打开使能
-  wire ir_valid_r;   //高电平表示ir寄存器中有值，低电平表示ir寄存器中没有值
+  wire ir_valid_r;   //有指令正在写入流水线寄存器
   wire ir_valid_nxt;
 
-  wire ir_pc_vld_set; //表示pc寄存器中没有值且没有冲刷请求就要把当前指令的pc值写入
-  wire ir_pc_vld_clr; //递交了指令或者pc寄存器中有pc值且收到了冲刷信号就要清除pc寄存器中的值
+  wire ir_pc_vld_set; //上一个pc值已经被用来取址了
+  wire ir_pc_vld_clr; //表示disp递交了指令或者产生了流水线冲刷，需要把指令寄存器中的指令擦除
   wire ir_pc_vld_ena;   //写入和清除都能做使能
-  wire ir_pc_vld_r;     //高电平表示pc寄存器中有值，低电平表示pc寄存器是空的
+  wire ir_pc_vld_r;     //表示有新的pc正在写入寄存器
   wire ir_pc_vld_nxt;
 
 
      // The ir valid is set when there is new instruction fetched *and* 
      //   no flush happening 
   wire ifu_rsp_need_replay;      //不知道干麼的，接了0
-  wire pc_newpend_r;
-  wire ifu_ir_i_ready;  //表示可以向寄存器写东西
-  assign ir_valid_set  = ifu_rsp_hsked & (~pipe_flush_req_real) & (~ifu_rsp_need_replay); //表示接收到了ift2icb发来的指令且没有流水线冲刷，就打算把指令写到ir寄存器中
-  assign ir_pc_vld_set = pc_newpend_r & ifu_ir_i_ready & (~pipe_flush_req_real) & (~ifu_rsp_need_replay); //表示pc寄存器中没有值且没有冲刷请求就要把当前指令的pc值写入
+  wire pc_newpend_r;    //下一个pc需要取址的状态
+  wire ifu_ir_i_ready;  //当前的pc已经被用来取址了，且已经取址完成了
+  assign ir_valid_set  = ifu_rsp_hsked & (~pipe_flush_req_real) & (~ifu_rsp_need_replay);
+  assign ir_pc_vld_set = pc_newpend_r & ifu_ir_i_ready & (~pipe_flush_req_real) & (~ifu_rsp_need_replay);
      // The ir valid is cleared when it is accepted by EXU stage *or*
      //   the flush happening 
-  assign ir_valid_clr  = ifu_ir_o_hsked | (pipe_flush_hsked & ir_valid_r); //递交了指令或者ir寄存器中有指令且收到了冲刷信号就要清除ir寄存器中的值
-  assign ir_pc_vld_clr = ir_valid_clr; //递交了指令或者pc寄存器中有pc值且收到了冲刷信号就要清除pc寄存器中的值
+  assign ir_valid_clr  = ifu_ir_o_hsked | (pipe_flush_hsked & ir_valid_r);
+  assign ir_pc_vld_clr = ir_valid_clr;
 
   assign ir_valid_ena  = ir_valid_set  | ir_valid_clr;
-  assign ir_valid_nxt  = ir_valid_set  | (~ir_valid_clr);   //1.如果当前指令寄存器中有指令，又与ift2icb握手成功且没有冲刷请求，仍会显示指令寄存器中有指令
-                                                            //2.如果当前指令寄存器中有指令，又与disp握手成功或者是有冲刷请求就会现实指令寄存器中没有指令
-                                                            //3.如果当前指令寄存器中没有指令（1）与ift2icb握手成功且没有冲刷请求，显示寄存器中有指令
-                                                            //                         （2）与disp握手成功，仍然显示寄存器中没有指令
-                                                            //                         （3）如果两个都成立，就显示寄存器中有指令
+  assign ir_valid_nxt  = ir_valid_set  | (~ir_valid_clr); 
   assign ir_pc_vld_ena = ir_pc_vld_set | ir_pc_vld_clr;  
   assign ir_pc_vld_nxt = ir_pc_vld_set | (~ir_pc_vld_clr);  //pc寄存器同理
 
@@ -315,16 +309,16 @@ module e203_ifu_ifetch(
   assign ifu_o_prdt_taken = ifu_prdt_taken_r;      //寄存后的预测为需要跳转
   assign ifu_o_muldiv_b2b = ifu_muldiv_b2b_r;      //寄存后的b2b指令
 
-  assign ifu_o_valid  = ir_valid_r;  //表示ir寄存器中有值
-  assign ifu_o_pc_vld = ir_pc_vld_r;   //表示pc寄存器中有值
+  assign ifu_o_valid  = ir_valid_r;  //有新的指令写入流水线寄存器
+  assign ifu_o_pc_vld = ir_pc_vld_r;   //有新的pc写入流水线寄存器
 
   // The IFU-IR stage will be ready when it is empty or under-clearing
-  assign ifu_ir_i_ready   = (~ir_valid_r) | ir_valid_clr; //表示可以向寄存器中写东西
+  assign ifu_ir_i_ready   = (~ir_valid_r) | ir_valid_clr; //流水线寄存器中没有指令了
 
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
   // JALR instruction dependency check
-  wire ir_empty = ~ir_valid_r;  //表示寄存器中是空的
+  wire ir_empty = ~ir_valid_r;  //表示流水线寄存器中是空的
   wire ir_rs1en = dec2ifu_rs1en; //需要读取rs1的使能
   wire ir_rden = dec2ifu_rden;   //需要写回结果到目的寄存器
   wire [`E203_RFIDX_WIDTH-1:0] ir_rdidx = dec2ifu_rdidx; //来自decode的目的寄存器索引
@@ -494,9 +488,9 @@ module e203_ifu_ifetch(
   // The new request ready condition is:
   //   * No outstanding reqeusts
   //   * Or if there is outstanding, but it is reponse valid back
-  wire out_flag_clr;  //说明ift2icb能向ifetch发送数据，且ifetch能顺利接受
-  wire out_flag_r;   //如果与ift2icb只一次握手没有反馈，那它就是1
-  wire new_req_condi = (~out_flag_r) | out_flag_clr;  //握两次了手，数据可以互通
+  wire out_flag_clr; //取址结束
+  wire out_flag_r;   //表示有一个取址正在进行中
+  wire new_req_condi = (~out_flag_r) | out_flag_clr;  //可以进行新的取址的条件
   assign ifu_no_outs   = (~out_flag_r) | ifu_rsp_valid;
         // Here we use the rsp_valid rather than the out_flag_clr (ifu_rsp_hsked) because
         //   as long as the rsp_valid is asserting then means last request have returned the
@@ -505,14 +499,14 @@ module e203_ifu_ifetch(
   assign ifu_req_valid = ifu_req_valid_pre & new_req_condi;  //握手成功且有新请求除法就会发送新的读写请求到ift2icb
 
   //wire ifu_rsp2ir_ready = (ifu_rsp_replay | pipe_flush_req_real) ? 1'b1 : (ifu_ir_i_ready & (~bpu_wait));
-  wire ifu_rsp2ir_ready = (pipe_flush_req_real) ? 1'b1 : (ifu_ir_i_ready & ifu_req_ready & (~bpu_wait)); //与ift2icb握手反馈信号
+  wire ifu_rsp2ir_ready = (pipe_flush_req_real) ? 1'b1 : (ifu_ir_i_ready & ifu_req_ready & (~bpu_wait));
 
   // Response channel only ready when:
   //   * IR is ready to accept new instructions
-  assign ifu_rsp_ready = ifu_rsp2ir_ready;   //与ift2icb握手反馈信号
+  assign ifu_rsp_ready = ifu_rsp2ir_ready;     //对取回来的指令已经处理完成了
 
   // The PC will need to be updated when ifu req channel handshaked or a flush is incoming
-  wire pc_ena = ifu_req_hsked | pipe_flush_hsked;  //与ift2icb握手成功或者冲刷流水线握手成功
+  wire pc_ena = ifu_req_hsked | pipe_flush_hsked;  //当前pc的处理已经完成，要进行下一条pc的取址
 
   sirv_gnrl_dfflr #(`E203_PC_SIZE) pc_dfflr (pc_ena, pc_nxt, pc_r, clk, rst_n);
 
@@ -523,20 +517,19 @@ module e203_ifu_ifetch(
   assign ifu_req_pc    = pc_nxt;//下一条指令的pc
 
      // The out_flag will be set if there is a new request handshaked
-  wire out_flag_set = ifu_req_hsked;   //ifetch能向ift2icb发送数据
+  wire out_flag_set = ifu_req_hsked; //正在取址
      // The out_flag will be cleared if there is a request response handshaked
-  assign out_flag_clr = ifu_rsp_hsked;   //ift2icb能向ifetch发送数据
+  assign out_flag_clr = ifu_rsp_hsked; //取址结束
   wire out_flag_ena = out_flag_set | out_flag_clr; 
      // If meanwhile set and clear, then set preempt
-  wire out_flag_nxt = out_flag_set | (~out_flag_clr);    //1.如果out_flag_r是0，那就只能ift2icb向ifetch发送数据
-                                                         //2.如果out_flag_r是1，ifetch一定能向ift2icb发送数据，但是ift2icb不一定能向ifetch发送数据
+  wire out_flag_nxt = out_flag_set | (~out_flag_clr);    
 
   sirv_gnrl_dfflr #(1) out_flag_dfflr (out_flag_ena, out_flag_nxt, out_flag_r, clk, rst_n);
 
        // The pc_newpend will be set if there is a new PC loaded
-  wire pc_newpend_set = pc_ena;  //与ift2icb握手成功或者冲刷流水线握手成功
+  wire pc_newpend_set = pc_ena; //当前pc取址已经完成，需要将pc和指令放入流水线寄存器
      // The pc_newpend will be cleared if have already loaded into the IR-PC stage
-  wire pc_newpend_clr = ir_pc_vld_set;
+  wire pc_newpend_clr = ir_pc_vld_set; //上一个pc已经处理完了
   wire pc_newpend_ena = pc_newpend_set | pc_newpend_clr;
      // If meanwhile set and clear, then set preempt
   wire pc_newpend_nxt = pc_newpend_set | (~pc_newpend_clr);

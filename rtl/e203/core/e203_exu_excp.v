@@ -29,12 +29,12 @@
 module e203_exu_excp(
   output  commit_trap,  //发送到lsu单元，不知道干麼的
   output  core_wfi,   //发送到外部，不知道干么的
-  output  wfi_halt_ifu_req, //发送给ifetch
-  output  wfi_halt_exu_req, //发送给disp
-  input   wfi_halt_ifu_ack, //来自ifetch
-  input   wfi_halt_exu_ack, //来自disp
+  output  wfi_halt_ifu_req, //发送给ifetch一个暂停请求
+  output  wfi_halt_exu_req, //发送给disp一个暂停请求
+  input   wfi_halt_ifu_ack, //来自ifetch处理暂停请求完成的反馈
+  input   wfi_halt_exu_ack, //来自disp处理暂停请求完成的反馈
 
-  input   amo_wait, //来自alu的lsuagu
+  input   amo_wait, //来自alu的lsuagu 不知道是啥
 
   output  alu_excp_i_ready,
   input   alu_excp_i_valid       , 
@@ -53,17 +53,17 @@ module e203_exu_excp(
   input   [`E203_INSTR_SIZE-1:0] alu_excp_i_instr,
   input   alu_excp_i_pc_vld,
   
-  output  longp_excp_i_ready,
-  input   longp_excp_i_valid,
-  input   longp_excp_i_ld,
-  input   longp_excp_i_st,// 1: load, 0: store
-  input   longp_excp_i_buserr , // The load/store bus-error exception generated
+  output  longp_excp_i_ready, //异常处理完毕给longpwbck一个反馈
+  input   longp_excp_i_valid, //接收来自longpwbck要处理的异常
+  input   longp_excp_i_ld,      //load异常
+  input   longp_excp_i_st,// 1: load, 0: store  //store异常
+  input   longp_excp_i_buserr , // The load/store bus-error exception generated //访问存储异常
   input   longp_excp_i_insterr, 
   input   [`E203_ADDR_SIZE-1:0] longp_excp_i_badaddr,
   input   [`E203_PC_SIZE-1:0] longp_excp_i_pc,
 
-  input   excpirq_flush_ack,  //来自ifetch
-  output  excpirq_flush_req,  //发送给ifetch
+  input   excpirq_flush_ack,  //来自ifetch流水线冲刷处理完毕的一个反馈
+  output  excpirq_flush_req,  //发送给ifetch一个流水线冲刷请求
   output  nonalu_excpirq_flush_req_raw,  //发送给alu的lsuagu和branchslv
   output  [`E203_PC_SIZE-1:0] excpirq_flush_add_op1,    //发送给ifetch
   output  [`E203_PC_SIZE-1:0] excpirq_flush_add_op2,     //发送给ifetch 
@@ -173,7 +173,7 @@ module e203_exu_excp(
 
 
   wire irq_req;
-  wire longp_need_flush;
+  wire longp_need_flush; //收到来自longpwbck的一个异常
   wire alu_need_flush;
   wire dbg_ebrk_req;
   wire dbg_trig_req;
@@ -190,7 +190,7 @@ module e203_exu_excp(
   //       ---- Must wait the OITF empty 
   
   // Exclude the pc_vld for longp, to just always make sure the longp can always accepted
-  wire longp_excp_flush_req = longp_need_flush ;
+  wire longp_excp_flush_req = longp_need_flush ;  //收到来自longpwbck的异常
   assign longp_excp_i_ready = excpirq_flush_ack;
 
   //   ^^^ Below we qualified the pc_vld signal to IRQ and Debug-entry req, why? 
@@ -272,7 +272,7 @@ module e203_exu_excp(
   ////////////////////////////////////////////////////////////////////////////
   // The Long-pipe triggered Exception 
   //                 
-  assign longp_need_flush = longp_excp_i_valid;// The longp come to excp
+  assign longp_need_flush = longp_excp_i_valid;// The longp come to excp //发现longpwbck需要处理异常
                                              //   module always ask for excepiton
 
   ////////////////////////////////////////////////////////////////////////////

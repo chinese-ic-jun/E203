@@ -88,7 +88,7 @@ module e203_exu_oitf (
   if(`E203_OITF_DEPTH > 1) begin: depth_gt1//{
       wire alc_ptr_flg_r;     //这应该是写回绕标志
       wire alc_ptr_flg_nxt = ~alc_ptr_flg_r;  //应该是写回绕标志
-      wire alc_ptr_flg_ena = (alc_ptr_r == ($unsigned(`E203_OITF_DEPTH-1))) & alc_ptr_ena; //预留了空位
+      wire alc_ptr_flg_ena = (alc_ptr_r == ($unsigned(`E203_OITF_DEPTH-1))) & alc_ptr_ena; //预留了空位 表明写指针饶了一圈
       
       sirv_gnrl_dfflr #(1) alc_ptr_flg_dfflrs(alc_ptr_flg_ena, alc_ptr_flg_nxt, alc_ptr_flg_r, clk, rst_n); //写绕回标志变号
       
@@ -143,10 +143,10 @@ module e203_exu_oitf (
   
         assign vld_set[i] = alc_ptr_ena & (alc_ptr_r == i);  //充当写入某一位的一个使能信号
         assign vld_clr[i] = ret_ptr_ena & (ret_ptr_r == i);  //充当读出某一位的一个使能信号
-        assign vld_ena[i] = vld_set[i] |   vld_clr[i];      //读写使能
+        assign vld_ena[i] = vld_set[i] |   vld_clr[i];      //读或者写使能
         assign vld_nxt[i] = vld_set[i] | (~vld_clr[i]);     //只有写使能，没有读使能
   
-        sirv_gnrl_dfflr #(1) vld_dfflrs(vld_ena[i], vld_nxt[i], vld_r[i], clk, rst_n);
+        sirv_gnrl_dfflr #(1) vld_dfflrs(vld_ena[i], vld_nxt[i], vld_r[i], clk, rst_n); //某一位的空满标志
         //Payload only set, no need to clear
         sirv_gnrl_dffl #(`E203_RFIDX_WIDTH) rdidx_dfflrs(vld_set[i], disp_i_rdidx, rdidx_r[i], clk);
         sirv_gnrl_dffl #(`E203_PC_SIZE    ) pc_dfflrs   (vld_set[i], disp_i_pc   , pc_r[i]   , clk);

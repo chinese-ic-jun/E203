@@ -61,7 +61,7 @@ module e203_exu_disp(
   output disp_o_alu_valid, //disp向alu发送读写请求信号
   input  disp_o_alu_ready,  //alu向disp返回的读写接受信号
 
-  input  disp_o_alu_longpipe, //暂时不知道是什么信号，可能是提示这是一条长指令？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？
+  input  disp_o_alu_longpipe, //指令到alu处理完之后发现他是一条长指令，就需要递交到oitf
 
   output [`E203_XLEN-1:0] disp_o_alu_rs1, //发送给alu，rs1的值
   output [`E203_XLEN-1:0] disp_o_alu_rs2, //发送给alu，rs2的值
@@ -152,9 +152,9 @@ module e203_exu_disp(
   // Since any instruction will need to be dispatched to ALU, we dont need the gate here
   //   wire   disp_i_ready_pos = disp_alu & disp_o_alu_ready;
   //   assign disp_o_alu_valid = disp_alu & disp_i_valid_pos; 
-  wire disp_i_valid_pos;  //发送给alu的握手信号
-  wire   disp_i_ready_pos = disp_o_alu_ready;   //alu向disp返回的读写请求
-  assign disp_o_alu_valid = disp_i_valid_pos;   //发送给alu的握手信号，表示要向alu派遣指令
+  wire disp_i_valid_pos;  //向alu派遣指令
+  wire   disp_i_ready_pos = disp_o_alu_ready;   //alu处理完了disp派遣的指令返回一个指示信号
+  assign disp_o_alu_valid = disp_i_valid_pos;   //表示要向alu派遣指令
   
   //////////////////////////////////////////////////////////////
   // The Dispatch Scheme Introduction for two-pipeline stage
@@ -237,8 +237,8 @@ module e203_exu_disp(
                // we always assume the LSU will need oitf ready
                & (disp_alu_longp_prdt ? disp_oitf_ready : 1'b1);
 
-  assign disp_i_valid_pos = disp_condition & disp_i_valid;    //说明现在满足派遣的条件，要给alu发宋读写请求了
-  assign disp_i_ready     = disp_condition & disp_i_ready_pos; //说明ifetch发来的指令已经交付和执行完了，就给ifetch返回一个读写请求
+  assign disp_i_valid_pos = disp_condition & disp_i_valid;    //说明从流水线寄存器取来的指令现在满足派遣的条件，要给alu派遣指令
+  assign disp_i_ready     = disp_condition & disp_i_ready_pos; //说明从流水线寄存器发来的指令已经在alu执行完了，就给ifetch返回一个读写反馈请求
 
 
   wire [`E203_XLEN-1:0] disp_i_rs1_msked = disp_i_rs1 & {`E203_XLEN{~disp_i_rs1x0}};//如果译码的结果是0那就取0，如果是1那就取通用寄存器给的结果
@@ -257,7 +257,7 @@ module e203_exu_disp(
   
     // Why we use precise version of disp_longp here, because
     //   only when it is really dispatched as long pipe then allocate the OITF
-  assign disp_oitf_ena = disp_o_alu_valid & disp_o_alu_ready & disp_alu_longp_real;   //派遣一个长指令的使能信号，需要写入oitf
+  assign disp_oitf_ena = disp_o_alu_valid & disp_o_alu_ready & disp_alu_longp_real;   //指令到alu处理完发现是一条长指令，派遣一个长指令的使能信号，需要写入oitf
 
   assign disp_o_alu_imm  = disp_i_imm;  //来自minidecode，指令使用的立即数的值
   assign disp_o_alu_pc   = disp_i_pc;//指令的pc值，发送给alu
