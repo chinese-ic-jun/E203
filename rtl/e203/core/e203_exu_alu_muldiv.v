@@ -36,8 +36,8 @@ module e203_exu_alu_muldiv(
   //////////////////////////////////////////////////////////////
   // The Issue Handshake Interface to MULDIV 
   //
-  input  muldiv_i_valid, // Handshake valid //握手信号
-  output muldiv_i_ready, // Handshake ready //握手信号
+  input  muldiv_i_valid, // Handshake valid //表示接收到disp递交的信息
+  output muldiv_i_ready, // Handshake ready //表示处理完disp递交的信息
 
   input  [`E203_XLEN-1:0] muldiv_i_rs1,
   input  [`E203_XLEN-1:0] muldiv_i_rs2,
@@ -53,7 +53,7 @@ module e203_exu_alu_muldiv(
   //////////////////////////////////////////////////////////////
   // The MULDIV Write-Back/Commit Interface
   output muldiv_o_valid, // Handshake valid //发送给commit和wbck的握手请求
-  input  muldiv_o_ready, // Handshake ready //接收握手反馈信号
+  input  muldiv_o_ready, // Handshake ready //表明wbck或commit处理完了
   output [`E203_XLEN-1:0] muldiv_o_wbck_wdat, //乘法要写回的数据结果
   output muldiv_o_wbck_err,    //大概就是报错
   //   There is no exception cases for MULDIV, so no addtional cmt signals

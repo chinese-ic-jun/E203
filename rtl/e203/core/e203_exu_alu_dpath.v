@@ -62,7 +62,7 @@ module e203_exu_alu_dpath(
   input  bjp_req_alu_cmp_gtu,  //来自bjp
   input  bjp_req_alu_add,  //来自bjp
 
-  output bjp_req_alu_cmp_res, //将运算结果发给bjp
+  output bjp_req_alu_cmp_res, //将运算结果发给bjp，比较的真实结果
   output [`E203_XLEN-1:0] bjp_req_alu_add_res,  //将运算结果发送给bjp，再发给wbck进行写回
 
   //////////////////////////////////////////////////////

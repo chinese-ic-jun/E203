@@ -32,8 +32,8 @@ module e203_exu_alu_csrctrl(
   //////////////////////////////////////////////////////////////
   // The Handshake Interface 
   //
-  input  csr_i_valid, // Handshake valid
-  output csr_i_ready, // Handshake ready
+  input  csr_i_valid, // Handshake valid  //表示接收到了disp递交的信息
+  output csr_i_ready, // Handshake ready  //表示处理完了disp递交的信息
 
   input  [`E203_XLEN-1:0] csr_i_rs1,
   input  [`E203_DECINFO_CSR_WIDTH-1:0] csr_i_info,
@@ -63,9 +63,9 @@ module e203_exu_alu_csrctrl(
 
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
-  // The CSR Write-back/Commit Interface
-  output csr_o_valid, // Handshake valid
-  input  csr_o_ready, // Handshake ready
+  // The CSR Write-back/Commit Interface  
+  output csr_o_valid, // Handshake valid  //disp递交的信息需要发送到commit或在wbck处理
+  input  csr_o_ready, // Handshake ready  //commit或者wbck处理完了
   //   The Write-Back Interface for Special (unaligned ldst and AMO instructions) 
   output [`E203_XLEN-1:0] csr_o_wbck_wdat,
   output csr_o_wbck_err,   

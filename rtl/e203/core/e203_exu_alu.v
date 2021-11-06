@@ -33,8 +33,8 @@ module e203_exu_alu(
 
   //////////////////////////////////////////////////////////////
   // The operands and decode info from dispatch
-  input  i_valid,  //来自ifu模块的握手信号
-  output i_ready,   //回馈给ifu模块的握手信号
+  input  i_valid,  //表明disp向alu递交了一个指令
+  output i_ready,   //表明disp递交的指令在alu运算完了
 
   output i_longpipe, // Indicate this instruction is  //应该时经过alu计算发现它是一条长指令
                      //   issued as a long pipe instruction
@@ -52,23 +52,23 @@ module e203_exu_alu(
   input  nice_xs_off,
   `endif//}
 
-  output amo_wait,  //发送给disp，不知道干麼的？？？？？？？？？？？？？？？？？？？？？
+  output amo_wait,  //发送给disp和excp，不知道干麼的？？？？？？？？？？？？？？？？？？？？？
   input  oitf_empty,
 
                      
   input  [`E203_ITAG_WIDTH-1:0] i_itag, //oitf的写地址
   input  [`E203_XLEN-1:0] i_rs1,  //来自disp给的rs1的值
   input  [`E203_XLEN-1:0] i_rs2,  //来自disp给的rs2的值
-  input  [`E203_XLEN-1:0] i_imm,  //来自disp给的立即数的值
+  input  [`E203_XLEN-1:0] i_imm,  //来自disp给的指令的立即数的值
   input  [`E203_DECINFO_WIDTH-1:0]  i_info,  //译码得出的指令信息
-  input  [`E203_PC_SIZE-1:0] i_pc,  //来自disp给的pc的值
-  input  [`E203_INSTR_SIZE-1:0] i_instr,  //来自ifetch给的指令
+  input  [`E203_PC_SIZE-1:0] i_pc,  //来自disp给的指令的pc值
+  input  [`E203_INSTR_SIZE-1:0] i_instr,  //从流水线寄存器中取出的指令
   input  i_pc_vld,  //从ifetch发送到执行单元的握手信号，后经执行单元到交付模块
   input  [`E203_RFIDX_WIDTH-1:0] i_rdidx, //译码得出的写回寄存器的索引
   input  i_rdwen, //译码得出该指令需要写结果操作数到寄存器使能
-  input  i_ilegl, //译码得出这是条错误指令
-  input  i_buserr,  //译码得出这是取址访问存储器错误
-  input  i_misalgn, //译码得出这是取址非对齐错误
+  input  i_ilegl, //这是条错误指令
+  input  i_buserr,  //取址访问存储器错误
+  input  i_misalgn, //取址非对齐错误
 
   input  flush_req,     //excp给出的  暂时不知道干麼的？？？？？？？？？？？？？？？？？？？？？？？
   input  flush_pulse,   //commit给出的 暂时不知道干麼的？？？？？？？？？？？？？？？？？？？？？？？
@@ -76,8 +76,8 @@ module e203_exu_alu(
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
   // The Commit Interface
-  output cmt_o_valid, // Handshake valid   //发送给commit的握手请求信号
-  input  cmt_o_ready, // Handshake ready    //接收commit的握手反馈信号
+  output cmt_o_valid, // Handshake valid   //发送给commit的握手请求信号 表明把递交的指令和信息发送给commit处理
+  input  cmt_o_ready, // Handshake ready    //接收commit的握手反馈信号  表明commit处理完了alu发送给commit的指令
   output cmt_o_pc_vld,    //从ifetch发送到执行单元的握手信号，后经执行单元到交付模块
   output [`E203_PC_SIZE-1:0] cmt_o_pc,   //当前指令的pc值，发送给commit
   output [`E203_INSTR_SIZE-1:0] cmt_o_instr,  //当前指令，发送给commit
@@ -106,10 +106,10 @@ module e203_exu_alu(
 
   //////////////////////////////////////////////////////////////
   // The ALU Write-Back Interface
-  output wbck_o_valid, // Handshake valid
-  input  wbck_o_ready, // Handshake ready
-  output [`E203_XLEN-1:0] wbck_o_wdat,
-  output [`E203_RFIDX_WIDTH-1:0] wbck_o_rdidx,
+  output wbck_o_valid, // Handshake valid //给wbck发送需要写回的请求
+  input  wbck_o_ready, // Handshake ready //表明wbck已经将alu需要写回的内容写回了
+  output [`E203_XLEN-1:0] wbck_o_wdat, //需要写回的结果
+  output [`E203_RFIDX_WIDTH-1:0] wbck_o_rdidx,  //写回的索引
   
   input  mdv_nob2b,
 

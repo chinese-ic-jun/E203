@@ -34,9 +34,9 @@ module e203_exu_alu_bjp(
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
   // The Handshake Interface
-  //
-  input  bjp_i_valid, // Handshake valid
-  output bjp_i_ready, // Handshake ready
+  //  
+  input  bjp_i_valid, // Handshake valid  //bjp接收到了disp递交的指令
+  output bjp_i_ready, // Handshake ready  //bjp处理完了disp递交的指令
 
   input  [`E203_XLEN-1:0] bjp_i_rs1,
   input  [`E203_XLEN-1:0] bjp_i_rs2,
@@ -47,18 +47,18 @@ module e203_exu_alu_bjp(
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
   // The BJP Commit Interface
-  output bjp_o_valid, // Handshake valid
-  input  bjp_o_ready, // Handshake ready
+  output bjp_o_valid, // Handshake valid  //disp递交的指令需要发送到commit或者wbck处理
+  input  bjp_o_ready, // Handshake ready  //commit或者wbck处理完了disp递交的指令
     //   The Write-Back Result for JAL and JALR
-  output [`E203_XLEN-1:0] bjp_o_wbck_wdat,
+  output [`E203_XLEN-1:0] bjp_o_wbck_wdat,  //写回的运算结果
   output bjp_o_wbck_err,
     //   The Commit Result for BJP
   output bjp_o_cmt_bjp,
   output bjp_o_cmt_mret,
   output bjp_o_cmt_dret,
   output bjp_o_cmt_fencei,
-  output bjp_o_cmt_prdt,// The predicted ture/false  
-  output bjp_o_cmt_rslv,// The resolved ture/false
+  output bjp_o_cmt_prdt,// The predicted ture/false  //预测的跳转结果
+  output bjp_o_cmt_rslv,// The resolved ture/false  //实际的结果
 
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////

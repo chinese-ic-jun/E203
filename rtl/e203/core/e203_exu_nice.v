@@ -29,19 +29,19 @@
 `ifdef E203_HAS_NICE//{
 module e203_exu_nice(
 
-  input  nice_i_xs_off,
-  input  nice_i_valid, // Handshake valid
-  output nice_i_ready, // Handshake ready
+  input  nice_i_xs_off,    //不知道是什么？？？？？？？？？？？？？？？？？？？？？？ 应该是个开关
+  input  nice_i_valid, // Handshake valid  //nice接收到了disp递交的信息
+  output nice_i_ready, // Handshake ready   //nice处理完了disp递交的信息
   input [`E203_XLEN-1:0]   nice_i_instr,
   input [`E203_XLEN-1:0]   nice_i_rs1,
   input [`E203_XLEN-1:0]   nice_i_rs2,
   //input                    nice_i_mmode , // O: current insns' mmode 
   input  [`E203_ITAG_WIDTH-1:0] nice_i_itag,
-  output nice_o_longpipe,
+  output nice_o_longpipe, //长指令
 
   // The nice Commit Interface
-  output                        nice_o_valid, // Handshake valid
-  input                         nice_o_ready, // Handshake ready
+  output                        nice_o_valid, // Handshake valid  //disp递交的信息需要发送到commit或者wbck处理
+  input                         nice_o_ready, // Handshake ready  //disp递交的信息在commit或者wbck处理完了
 
   //////////////////////////////////////////////////////////////
   // The nice write-back Interface

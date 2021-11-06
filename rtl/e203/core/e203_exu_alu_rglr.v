@@ -33,20 +33,20 @@ module e203_exu_alu_rglr(
   //////////////////////////////////////////////////////////////
   // The Handshake Interface 
   //
-  input  alu_i_valid, // Handshake valid //和disp单元的握手信号
-  output alu_i_ready, // Handshake ready  //给disp的握手反馈信号
+  input  alu_i_valid, // Handshake valid //表明rglr收到了disp递交的信息
+  output alu_i_ready, // Handshake ready  //给disp的握手反馈信号 表示处理完了disp递交的信息
 
-  input  [`E203_XLEN-1:0] alu_i_rs1,   //原寄存器1的值 被alu处理后的值
-  input  [`E203_XLEN-1:0] alu_i_rs2,   //原寄存器2的值 被alu处理后的值
-  input  [`E203_XLEN-1:0] alu_i_imm,   //立即数 被alu处理后的值
-  input  [`E203_PC_SIZE-1:0] alu_i_pc, //pc值 被alu处理后的值
-  input  [`E203_DECINFO_ALU_WIDTH-1:0] alu_i_info, //信息总线，所有的指令信息都存在里面 被alu处理后的值
+  input  [`E203_XLEN-1:0] alu_i_rs1,   //原寄存器1的值
+  input  [`E203_XLEN-1:0] alu_i_rs2,   //原寄存器2的值
+  input  [`E203_XLEN-1:0] alu_i_imm,   //立即数
+  input  [`E203_PC_SIZE-1:0] alu_i_pc, //pc值
+  input  [`E203_DECINFO_ALU_WIDTH-1:0] alu_i_info, //信息总线，所有的指令信息都存在里面
 
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
   // The ALU Write-back/Commit Interface
-  output alu_o_valid, // Handshake valid
-  input  alu_o_ready, // Handshake ready
+  output alu_o_valid, // Handshake valid   //表明disp递交的信息需要发送到commit或者wbck处理  只要有异常就交给commit处理
+  input  alu_o_ready, // Handshake ready  //表明disp递交的信息在commit或者wbck处理完了
   //   The Write-Back Interface for Special (unaligned ldst and AMO instructions) 
   output [`E203_XLEN-1:0] alu_o_wbck_wdat,   //由dpath给出运算结果，输出操作数运算结果给wbck进行写回
   output alu_o_wbck_err,      //不知道什么意思？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？

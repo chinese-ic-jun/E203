@@ -34,8 +34,8 @@ module e203_exu_disp(
   input  amo_wait,//来自exu的lsuagu，不知道干麼的  如果为1，是不是表示有指令没处理完？？？？？？？？？？？？？？？？？？？
   //////////////////////////////////////////////////////////////
   // The operands and decode info from dispatch
-  input  disp_i_valid, // Handshake valid //ifetch向disp发送读写反馈请求信号
-  output disp_i_ready, // Handshake ready  //disp向ifetch返回读写反馈接受信号
+  input  disp_i_valid, // Handshake valid //ifetch向disp发送读写反馈请求信号 说明disp读取了流水线寄存器中的指令
+  output disp_i_ready, // Handshake ready  //disp向ifetch返回读写反馈接受信号 disp读取了指令并且执行完了
 
   // The operand 1/2 read-enable signals and indexes
   input  disp_i_rs1x0,  //该指令原操作数1的寄存器索引为x0 来自decode

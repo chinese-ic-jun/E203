@@ -35,16 +35,16 @@ module e203_exu_alu_lsuagu(
   //////////////////////////////////////////////////////////////
   // The Issue Handshake Interface to AGU 
   //
-  input  agu_i_valid, // Handshake valid
-  output agu_i_ready, // Handshake ready
+  input  agu_i_valid, // Handshake valid  //接收到了disp递交的信息
+  output agu_i_ready, // Handshake ready  //处理完了disp递交的信息
 
-  input  [`E203_XLEN-1:0] agu_i_rs1,
+  input  [`E203_XLEN-1:0] agu_i_rs1,  
   input  [`E203_XLEN-1:0] agu_i_rs2,
   input  [`E203_XLEN-1:0] agu_i_imm,
   input  [`E203_DECINFO_AGU_WIDTH-1:0] agu_i_info,
   input  [`E203_ITAG_WIDTH-1:0] agu_i_itag,
 
-  output agu_i_longpipe,
+  output agu_i_longpipe, //长指令
 
   input  flush_req,
   input  flush_pulse,
@@ -55,9 +55,9 @@ module e203_exu_alu_lsuagu(
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
   // The AGU Write-Back/Commit Interface
-  output agu_o_valid, // Handshake valid
-  input  agu_o_ready, // Handshake ready
-  output [`E203_XLEN-1:0] agu_o_wbck_wdat,
+  output agu_o_valid, // Handshake valid  //disp递交的信息需要发送到commit或wbck处理
+  input  agu_o_ready, // Handshake ready  //commit或在wbck处理完了disp递交的信息
+  output [`E203_XLEN-1:0] agu_o_wbck_wdat, //需要写回的数据
   output agu_o_wbck_err,   
   //   The Commit Interface for all ldst and amo instructions
   output agu_o_cmt_misalgn, // The misalign exception generated
