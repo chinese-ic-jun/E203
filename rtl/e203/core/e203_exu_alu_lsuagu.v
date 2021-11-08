@@ -29,7 +29,7 @@
 // ====================================================================
 `include "e203_defines.v"
 
-module e203_exu_alu_lsuagu(
+module e203_exu_alu_lsuagu( //主要为读和写指令，和“A”扩展指令生成存储器访问地址
 
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
@@ -38,9 +38,9 @@ module e203_exu_alu_lsuagu(
   input  agu_i_valid, // Handshake valid  //接收到了disp递交的信息
   output agu_i_ready, // Handshake ready  //处理完了disp递交的信息
 
-  input  [`E203_XLEN-1:0] agu_i_rs1,  
-  input  [`E203_XLEN-1:0] agu_i_rs2,
-  input  [`E203_XLEN-1:0] agu_i_imm,
+  input  [`E203_XLEN-1:0] agu_i_rs1,  //rs1的值
+  input  [`E203_XLEN-1:0] agu_i_rs2,  //rs2的值
+  input  [`E203_XLEN-1:0] agu_i_imm,  //立即数
   input  [`E203_DECINFO_AGU_WIDTH-1:0] agu_i_info,
   input  [`E203_ITAG_WIDTH-1:0] agu_i_itag,
 
@@ -60,9 +60,9 @@ module e203_exu_alu_lsuagu(
   output [`E203_XLEN-1:0] agu_o_wbck_wdat, //需要写回的数据
   output agu_o_wbck_err,   
   //   The Commit Interface for all ldst and amo instructions
-  output agu_o_cmt_misalgn, // The misalign exception generated
-  output agu_o_cmt_ld, 
-  output agu_o_cmt_stamo,
+  output agu_o_cmt_misalgn, // The misalign exception generated //产生非对齐指示信号
+  output agu_o_cmt_ld,  //产生读存储器地址非对齐异常
+  output agu_o_cmt_stamo, //产生st或amo地址非对齐异常
   output agu_o_cmt_buserr, // The bus-error exception generated
   output [`E203_ADDR_SIZE-1:0] agu_o_cmt_badaddr,
 
@@ -70,11 +70,11 @@ module e203_exu_alu_lsuagu(
   //////////////////////////////////////////////////////////////
   // The ICB Interface to LSU-ctrl
   //    * Bus cmd channel
-  output                       agu_icb_cmd_valid, // Handshake valid
-  input                        agu_icb_cmd_ready, // Handshake ready
+  output                       agu_icb_cmd_valid, // Handshake valid  //读写指令未产生异常，发送给lsu处理
+  input                        agu_icb_cmd_ready, // Handshake ready  //lsu处理完了lsuagu发送的指令
             // Note: The data on rdata or wdata channel must be naturally
             //       aligned, this is in line with the AXI definition
-  output [`E203_ADDR_SIZE-1:0] agu_icb_cmd_addr, // Bus transaction start addr 
+  output [`E203_ADDR_SIZE-1:0] agu_icb_cmd_addr, // Bus transaction start addr  //最终的访存地址
   output                       agu_icb_cmd_read,   // Read or write
   output [`E203_XLEN-1:0]      agu_icb_cmd_wdata, 
   output [`E203_XLEN/8-1:0]    agu_icb_cmd_wmask, 
@@ -102,7 +102,7 @@ module e203_exu_alu_lsuagu(
   // 
      // The operands and info to ALU
   output [`E203_XLEN-1:0] agu_req_alu_op1, //输出操作数1
-  output [`E203_XLEN-1:0] agu_req_alu_op2,  //输出操作数2
+  output [`E203_XLEN-1:0] agu_req_alu_op2,  //符号位立即数扩展的操作数2 //两个相加就得到最终的访存地址
   output agu_req_alu_swap,
   output agu_req_alu_add ,
   output agu_req_alu_and ,
@@ -112,7 +112,7 @@ module e203_exu_alu_lsuagu(
   output agu_req_alu_min ,
   output agu_req_alu_maxu,
   output agu_req_alu_minu,
-  input  [`E203_XLEN-1:0] agu_req_alu_res, //来自dpath的运算结果
+  input  [`E203_XLEN-1:0] agu_req_alu_res, //来自dpath的运算结果，应该是最终的访存地址
 
      // The Shared-Buffer interface to ALU-Shared-Buffer
   output agu_sbf_0_ena,
@@ -163,11 +163,11 @@ module e203_exu_alu_lsuagu(
     `endif//}
   `endif//}
 
-  wire agu_i_size_b  = (agu_i_size == 2'b00);
+  wire agu_i_size_b  = (agu_i_size == 2'b00); //判断当前读写指令访问内存的操作尺寸
   wire agu_i_size_hw = (agu_i_size == 2'b01);
   wire agu_i_size_w  = (agu_i_size == 2'b10);
 
-  wire agu_i_addr_unalgn = 
+  wire agu_i_addr_unalgn =   //判断当前访存地址是否与操作尺寸对齐
             (agu_i_size_hw &  agu_icb_cmd_addr[0])
           | (agu_i_size_w  &  (|agu_icb_cmd_addr[1:0]));
 
@@ -195,17 +195,17 @@ module e203_exu_alu_lsuagu(
   `endif//}
 
  
-  wire agu_i_unalgnld = (agu_addr_unalgn & agu_i_load)
+  wire agu_i_unalgnld = (agu_addr_unalgn & agu_i_load) //ld非对齐
+                      ; 
+  wire agu_i_unalgnst = (agu_addr_unalgn & agu_i_store)   //st非对齐
                       ;
-  wire agu_i_unalgnst = (agu_addr_unalgn & agu_i_store) 
+  wire agu_i_unalgnldst = (agu_i_unalgnld | agu_i_unalgnst) //产生非对齐异常
                       ;
-  wire agu_i_unalgnldst = (agu_i_unalgnld | agu_i_unalgnst)
-                      ;
-  wire agu_i_algnld = (~agu_addr_unalgn) & agu_i_load
-                      ;
-  wire agu_i_algnst = (~agu_addr_unalgn) & agu_i_store
-                      ;
-  wire agu_i_algnldst = (agu_i_algnld | agu_i_algnst)
+  wire agu_i_algnld = (~agu_addr_unalgn) & agu_i_load  //ld对齐
+                      ; 
+  wire agu_i_algnst = (~agu_addr_unalgn) & agu_i_store  //st对齐
+                      ; 
+  wire agu_i_algnldst = (agu_i_algnld | agu_i_algnst) //对齐
                       ;
 
   `ifdef E203_SUPPORT_AMO//{
@@ -479,7 +479,7 @@ module e203_exu_alu_lsuagu(
                            | icb_sta_is_idle
                            ;
 
-  assign agu_req_alu_op1 =  icb_sta_is_idle   ? agu_i_rs1
+  assign agu_req_alu_op1 =  icb_sta_is_idle   ? agu_i_rs1   //第一个寄存器索引的原操作数
                      `ifdef E203_SUPPORT_AMO//{
                           : icb_sta_is_amoalu ? leftover_r
                              // In order to let AMO 2nd uop have correct address
@@ -490,8 +490,8 @@ module e203_exu_alu_lsuagu(
                      `endif//}
                      ;
 
-  wire [`E203_XLEN-1:0] agu_addr_gen_op2 = agu_i_ofst0 ? `E203_XLEN'b0 : agu_i_imm;
-  assign agu_req_alu_op2 =  icb_sta_is_idle   ? agu_addr_gen_op2 
+  wire [`E203_XLEN-1:0] agu_addr_gen_op2 = agu_i_ofst0 ? `E203_XLEN'b0 : agu_i_imm;     //符号位扩展的立即数
+  assign agu_req_alu_op2 =  icb_sta_is_idle   ? agu_addr_gen_op2  //符号位扩展的立即数
                      `ifdef E203_SUPPORT_AMO//{
                           : icb_sta_is_amoalu ? agu_i_rs2
                              // In order to let AMO 2nd uop have correct address
@@ -646,7 +646,7 @@ module e203_exu_alu_lsuagu(
             | (agu_i_unalgnamo & 1'b0) 
           `endif//E203_SUPPORT_AMO}
             ;
-  assign agu_icb_cmd_addr = agu_req_alu_res[`E203_ADDR_SIZE-1:0];
+  assign agu_icb_cmd_addr = agu_req_alu_res[`E203_ADDR_SIZE-1:0];   //最终的访存地址
 
   assign agu_icb_cmd_read = 
             (agu_i_algnldst & agu_i_load) 

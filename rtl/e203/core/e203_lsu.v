@@ -25,7 +25,7 @@
 // ====================================================================
 `include "e203_defines.v"
 
-module e203_lsu(
+module e203_lsu( //主要作为存储器访问的控制模块
   input  commit_mret, //来自exu
   input  commit_trap, //来自exu
   input  excp_active, //来自exu

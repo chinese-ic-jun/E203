@@ -62,7 +62,7 @@ module e203_ifu_ifetch(
   // The IR stage to EXU interface
   output [`E203_INSTR_SIZE-1:0] ifu_o_ir,// The instruction register  //由低16位和高16位拼成的指令 发送到指令寄存器
   output [`E203_PC_SIZE-1:0] ifu_o_pc,   // The PC register along with   //当前指令pc值寄存到pc寄存器的值
-  output ifu_o_pc_vld,  //经过alu到commit再到excp模块
+  output ifu_o_pc_vld,  //经过alu到commit再到excp模块    //有新的pc写入流水线寄存器
   output [`E203_RFIDX_WIDTH-1:0] ifu_o_rs1idx,  //rs1寄存器索引
   output [`E203_RFIDX_WIDTH-1:0] ifu_o_rs2idx,  //rs2寄存器索引
   output ifu_o_prdt_taken,               // The Bxx is predicted as taken  //预测为需要跳转
