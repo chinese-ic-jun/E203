@@ -35,8 +35,8 @@ module e203_ifu_ift2icb(
   //////////////////////////////////////////////////////////////
   // Fetch Interface to memory system, internal protocol
   //    * IFetch REQ channel
-  input  ifu_req_valid, // Handshake valid  //与ifetch模块的握手信号
-  output ifu_req_ready, // Handshake ready  //与ifetch模块的握手信号
+  input  ifu_req_valid, // Handshake valid  //与ifetch模块的握手信号 接收来自ifetch的取指请求
+  output ifu_req_ready, // Handshake ready  //与ifetch模块的握手信号  正在取指
             // Note: the req-addr can be unaligned with the length indicated
             //       by req_len signal.
             //       The targetd (ITCM, ICache or Sys-MEM) ctrl modules 
@@ -48,8 +48,8 @@ module e203_ifu_ift2icb(
                                            // PC address (i.e., pc_r)
                              
   //    * IFetch RSP channel
-  output ifu_rsp_valid, // Response valid   //与ifetch模块的握手信号
-  input  ifu_rsp_ready, // Response ready   //与ifetch模块的握手信号
+  output ifu_rsp_valid, // Response valid   //与ifetch模块的握手信号  将取回的指令发送给ifetch
+  input  ifu_rsp_ready, // Response ready   //与ifetch模块的握手信号  发送完毕
   output ifu_rsp_err,   // Response error   //发送给ofetch模块的错误指令提示信号
             // Note: the RSP channel always return a valid instruction
             //   fetched from the fetching start PC address.
@@ -65,15 +65,15 @@ module e203_ifu_ift2icb(
   input [`E203_ADDR_SIZE-1:0] itcm_region_indic,
   // Bus Interface to ITCM, internal protocol called ICB (Internal Chip Bus)
   //    * Bus cmd channel
-  output ifu2itcm_icb_cmd_valid, // Handshake valid //
-  input  ifu2itcm_icb_cmd_ready, // Handshake ready //
+  output ifu2itcm_icb_cmd_valid, // Handshake valid //向itcm发送取指请求
+  input  ifu2itcm_icb_cmd_ready, // Handshake ready //正在取指
             // Note: The data on rdata or wdata channel must be naturally
             //       aligned, this is in line with the AXI definition
   output [`E203_ITCM_ADDR_WIDTH-1:0]   ifu2itcm_icb_cmd_addr, // Bus transaction start addr //地址
 
   //    * Bus RSP channel
-  input  ifu2itcm_icb_rsp_valid, // Response valid //
-  output ifu2itcm_icb_rsp_ready, // Response ready  //
+  input  ifu2itcm_icb_rsp_valid, // Response valid //接收来自itcm的数据
+  output ifu2itcm_icb_rsp_ready, // Response ready  //接收完毕
   input  ifu2itcm_icb_rsp_err,   // Response error  //
             // Note: the RSP rdata is inline with AXI definition
   input  [`E203_ITCM_DATA_WIDTH-1:0] ifu2itcm_icb_rsp_rdata,  //从itcm返回的数据
@@ -86,15 +86,15 @@ module e203_ifu_ift2icb(
   //////////////////////////////////////////////////////////////
   // Bus Interface to System Memory, internal protocol called ICB (Internal Chip Bus)
   //    * Bus cmd channel
-  output ifu2biu_icb_cmd_valid, // Handshake valid  //
-  input  ifu2biu_icb_cmd_ready, // Handshake ready  //
+  output ifu2biu_icb_cmd_valid, // Handshake valid  //发送访问外部存储请求
+  input  ifu2biu_icb_cmd_ready, // Handshake ready  //发送完毕
             // Note: The data on rdata or wdata channel must be naturally
             //       aligned, this is in line with the AXI definition
   output [`E203_ADDR_SIZE-1:0]   ifu2biu_icb_cmd_addr, // Bus transaction start addr //地址
 
   //    * Bus RSP channel
-  input  ifu2biu_icb_rsp_valid, // Response valid //
-  output ifu2biu_icb_rsp_ready, // Response ready //
+  input  ifu2biu_icb_rsp_valid, // Response valid //接收从外部取回的数据
+  output ifu2biu_icb_rsp_ready, // Response ready //接收完毕
   input  ifu2biu_icb_rsp_err,   // Response error //返回错误
             // Note: the RSP rdata is inline with AXI definition
   input  [`E203_SYSMEM_DATA_WIDTH-1:0] ifu2biu_icb_rsp_rdata,   //从外部储存返回的数据 
