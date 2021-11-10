@@ -34,8 +34,8 @@ module e203_exu_longpwbck(
 
   //////////////////////////////////////////////////////////////
   // The LSU Write-Back Interface
-  input  lsu_wbck_i_valid, // Handshake valid //接收握手请求信号  来自lsu向longpwbck发送的读写请求信号
-  output lsu_wbck_i_ready, // Handshake ready //发送握手反馈信号  longpwbck向lsu返回的读写反馈信号
+  input  lsu_wbck_i_valid, // Handshake valid //接收握手请求信号 接收lsu的写回信息
+  output lsu_wbck_i_ready, // Handshake ready //发送握手反馈信号  
   input  [`E203_XLEN-1:0] lsu_wbck_i_wdat,  //写回的数据 来自lsu
   input  [`E203_ITAG_WIDTH -1:0] lsu_wbck_i_itag, //写回指令的itag 来自lsu
   input  lsu_wbck_i_err , // The error exception generated  //写回的异常错误提示 来自lsu
@@ -128,7 +128,7 @@ module e203_exu_longpwbck(
   wire wbck_i_rdfpu; // 回写的指令的目的操作数是否是浮点操作数使能信号
   wire wbck_i_err ;  //写回的异常错误提示
 
-  assign lsu_wbck_i_ready = wbck_ready4lsu & wbck_i_ready;  //成功接收lsu发来的信息
+  assign lsu_wbck_i_ready = wbck_ready4lsu & wbck_i_ready;  //写回成功
 
   assign wbck_i_valid =   ({1{wbck_sel_lsu}} & lsu_wbck_i_valid)  //能写回，且握手成功
                         `ifdef E203_HAS_NICE//{

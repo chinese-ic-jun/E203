@@ -26,7 +26,7 @@
 
 `include "e203_defines.v"
 
-module e203_reset_ctrl #(
+module e203_reset_ctrl #( //用于将外界的异步复位进行同步
     parameter MASTER = 1
 )(
   input  clk,        // clock

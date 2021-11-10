@@ -27,7 +27,7 @@
 
 `include "e203_defines.v"
 
-module e203_clk_ctrl (
+module e203_clk_ctrl ( //设置自动门空时钟
   input  clk,        // clock
   input  rst_n,      // async reset
   input  test_mode,  // test mode 

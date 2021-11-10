@@ -50,9 +50,9 @@ module e203_exu_csr(
   input  [`E203_XLEN-1:0] wbck_csr_dat,//写操作写入的数据 来自alu的csrctrl
    
   input  [`E203_HART_ID_W-1:0] core_mhartid,  //来自外部，不知道干啥的？？？？？？？？？？？？？？？？
-  input  ext_irq_r,  // 中断请求，用于更新中断pending寄存器中的标志位
-  input  sft_irq_r,  // 中断请求，用于更新中断pending寄存器中的标志位
-  input  tmr_irq_r,  // 中断请求，用于更新中断pending寄存器中的标志位
+  input  ext_irq_r,  // 中断请求，用于更新中断pending寄存器中的标志位 外部中断
+  input  sft_irq_r,  // 中断请求，用于更新中断pending寄存器中的标志位 软件中断
+  input  tmr_irq_r,  // 中断请求，用于更新中断pending寄存器中的标志位 计时中断
 
   output status_mie_r,  // mstatus寄存器中的mie状态
   output mtie_r,  // mie 寄存器中的tie状态
@@ -87,7 +87,7 @@ module e203_exu_csr(
   input cmt_status_ena,  //mstatus寄存器的更新指示信号
   input cmt_instret_ena, //minstret寄存器更新信号，表示一条指令commit了，那么指令个数统计计数器加1
 
-  input                      cmt_mret_ena,  //这个信号应该是表示mret指令交付了；具体可以待看了commit的实现再来回看？？？mret是异常返回指令
+  input                      cmt_mret_ena,  //mret是异常返回指令
   output[`E203_PC_SIZE-1:0]  csr_epc_r,    //输出相应的异常状态下用的pc值
   output[`E203_PC_SIZE-1:0]  csr_dpc_r,    //输出相应的异常状态下用的pc值
   output[`E203_XLEN-1:0]     csr_mtvec_r,   //输出相应的异常状态下用的pc值

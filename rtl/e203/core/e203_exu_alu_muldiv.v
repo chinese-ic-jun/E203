@@ -54,7 +54,7 @@ module e203_exu_alu_muldiv(
   // The MULDIV Write-Back/Commit Interface
   output muldiv_o_valid, // Handshake valid //发送给commit和wbck的握手请求
   input  muldiv_o_ready, // Handshake ready //表明wbck或commit处理完了
-  output [`E203_XLEN-1:0] muldiv_o_wbck_wdat, //乘法要写回的数据结果
+  output [`E203_XLEN-1:0] muldiv_o_wbck_wdat, //乘除法要写回的数据结果
   output muldiv_o_wbck_err,    //大概就是报错
   //   There is no exception cases for MULDIV, so no addtional cmt signals
 
@@ -103,22 +103,21 @@ module e203_exu_alu_muldiv(
   wire i_rem    = muldiv_i_info[`E203_DECINFO_MULDIV_REM   ];
   wire i_remu   = muldiv_i_info[`E203_DECINFO_MULDIV_REMU  ];
       // If it is flushed then it is not back2back real case
-  wire i_b2b    = muldiv_i_info[`E203_DECINFO_MULDIV_B2B   ] & (~flushed_r) & (~mdv_nob2b);
+  wire i_b2b    = muldiv_i_info[`E203_DECINFO_MULDIV_B2B   ] & (~flushed_r) & (~mdv_nob2b); //如果被冲刷了就不是真正的b2b
 
-  wire back2back_seq = i_b2b;
-
-  wire mul_rs1_sign = (i_mulhu)            ? 1'b0 : muldiv_i_rs1[`E203_XLEN-1]; //对操作数进行符号为扩展
+  wire back2back_seq = i_b2b; //是b2b指令
+  wire mul_rs1_sign = (i_mulhu)            ? 1'b0 : muldiv_i_rs1[`E203_XLEN-1]; //对操作数进行符号位扩展
   wire mul_rs2_sign = (i_mulhsu | i_mulhu) ? 1'b0 : muldiv_i_rs2[`E203_XLEN-1];
 
-  wire [32:0] mul_op1 = {mul_rs1_sign, muldiv_i_rs1};
-  wire [32:0] mul_op2 = {mul_rs2_sign, muldiv_i_rs2};
+  wire [32:0] mul_op1 = {mul_rs1_sign, muldiv_i_rs1}; //符号位扩展
+  wire [32:0] mul_op2 = {mul_rs2_sign, muldiv_i_rs2}; //符号位扩展
 
   wire i_op_mul = i_mul | i_mulh | i_mulhsu | i_mulhu;  //译码出是乘法操作
   wire i_op_div = i_div | i_divu | i_rem    | i_remu;   //译码出是除法操作
 
 
   /////////////////////////////////////////////////////////////////////////////////
-  // Implement the state machine for 
+  // Implement the state machine for  使用状态机控制多周期乘法或者除法操作
   //    (1) The MUL instructions
   //    (2) The DIV instructions
   localparam MULDIV_STATE_WIDTH = 3;
@@ -151,7 +150,7 @@ module e203_exu_alu_muldiv(
   wire state_remd_corr_exit_ena;
 
   wire special_cases;
-  wire muldiv_i_valid_nb2b = muldiv_i_valid & (~back2back_seq) & (~special_cases);
+  wire muldiv_i_valid_nb2b = muldiv_i_valid & (~back2back_seq) & (~special_cases); //不是b2b指令
 
   // Define some common signals and reused later to save gatecounts
   wire   muldiv_sta_is_0th       = (muldiv_state_r == MULDIV_STATE_0TH   );
@@ -162,7 +161,7 @@ module e203_exu_alu_muldiv(
 
       // **** If the current state is 0th,
           // If a new instruction come (non back2back), next state is MULDIV_STATE_EXEC
-  assign state_0th_exit_ena = muldiv_sta_is_0th & muldiv_i_valid_nb2b & (~flush_pulse);
+  assign state_0th_exit_ena = muldiv_sta_is_0th & muldiv_i_valid_nb2b & (~flush_pulse); //不是b2b的成除法
   assign state_0th_nxt      = MULDIV_STATE_EXEC;
 
       // **** If the current state is exec,
@@ -235,8 +234,8 @@ module e203_exu_alu_muldiv(
 
   localparam EXEC_CNT_W  = 6;
   localparam EXEC_CNT_1  = 6'd1 ;
-  localparam EXEC_CNT_16 = 6'd16;
-  localparam EXEC_CNT_32 = 6'd32;
+  localparam EXEC_CNT_16 = 6'd16;   //指示乘法总共需要17个迭代时钟周期
+  localparam EXEC_CNT_32 = 6'd32;   //指示乘法总共需要33个迭代时钟周期
 
   wire[EXEC_CNT_W-1:0] exec_cnt_r;
   wire exec_cnt_set = state_exec_enter_ena;

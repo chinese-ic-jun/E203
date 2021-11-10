@@ -83,8 +83,8 @@ module e203_biu(  /////////////////fuck//////////////////
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
   // The ICB Interface to Private Peripheral Interface
-  //
-  input [`E203_ADDR_SIZE-1:0]    ppi_region_indic,
+  //  私有外设接口
+  input [`E203_ADDR_SIZE-1:0]    ppi_region_indic, 
   input                          ppi_icb_enable,
   //    * Bus cmd channel
   output                         ppi_icb_cmd_valid,
@@ -106,7 +106,7 @@ module e203_biu(  /////////////////fuck//////////////////
   input                          ppi_icb_rsp_excl_ok,
   input  [`E203_XLEN-1:0]        ppi_icb_rsp_rdata,
 
-    //
+    //clint接口
   input [`E203_ADDR_SIZE-1:0]    clint_region_indic,
   input                          clint_icb_enable,
   //    * Bus cmd channel
@@ -129,7 +129,7 @@ module e203_biu(  /////////////////fuck//////////////////
   input                          clint_icb_rsp_excl_ok,
   input  [`E203_XLEN-1:0]        clint_icb_rsp_rdata,
 
-      //
+      //plic接口
   input [`E203_ADDR_SIZE-1:0]    plic_region_indic,
   input                          plic_icb_enable,
   //    * Bus cmd channel
@@ -157,6 +157,7 @@ module e203_biu(  /////////////////fuck//////////////////
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
   // The ICB Interface to Fast I/O
+  // 快速io接口
   input [`E203_ADDR_SIZE-1:0]    fio_region_indic,
   input                          fio_icb_enable,
   //
@@ -185,7 +186,7 @@ module e203_biu(  /////////////////fuck//////////////////
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
   // The ICB Interface from Ifetch 
-  //
+  //  系统存储器接口
   input                          mem_icb_enable,
   //    * Bus cmd channel
   output                         mem_icb_cmd_valid,
