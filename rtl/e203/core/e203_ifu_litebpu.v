@@ -26,7 +26,6 @@
 `include "e203_defines.v"
 
 module e203_ifu_litebpu(
-              ////////////////////////////////主要就是判断存不存在依赖，需不需要读取通用寄存器的////////////////////////
   // Current PC
   input  [`E203_PC_SIZE-1:0] pc,  //当前取到指令的pc值
 
@@ -39,7 +38,7 @@ module e203_ifu_litebpu(
 
   // The IR index and OITF status to be used for checking dependency
   input  oitf_empty,    //直接来自执行模块的oitf，当它为1时，则说明oitf为空，则不存在数据冒险
-  input  ir_empty,  //说明此时ir寄存中的指令无效，不会被执行，比如分支预测失败后分支指令还会在ir寄存器中保留一个周期，此时需要将ir_empty置1，说明这是个无效指令  //这个信号有点复杂
+  input  ir_empty,  //说明此时ir寄存中的指令无效，不会被执行，比如分支预测失败后分支指令还会在ir寄存器中保留一个周期，此时需要将ir_empty置1，说明这是个无效指令
   input  ir_rs1en,  //说明此时ir寄存器中的指令需要读取rs1操作数  //来自disp模块
   input  jalr_rs1idx_cam_irrdidx, //说明当前执行的指令存在RAW冒险
   
@@ -49,7 +48,7 @@ module e203_ifu_litebpu(
   output [`E203_PC_SIZE-1:0] prdt_pc_add_op1,   //预测的PC的op1  pc=op1+op2
   output [`E203_PC_SIZE-1:0] prdt_pc_add_op2,   //预测的PC的op2
 
-  input  dec_i_valid, //来自ift2icb模块的握手信号 说明与ifetch模块握手成功
+  input  dec_i_valid, //来自ift2icb模块的握手信号 接收到新的指令
 
   // The RS1 to read regfile
   output bpu2rf_rs1_ena,  //说明下个周期会读取regfile
@@ -83,24 +82,20 @@ module e203_ifu_litebpu(
 
   // The JAL and JALR is always jump, bxxx backward is predicted as taken  
   assign prdt_taken   = (dec_jal | dec_jalr | (dec_bxx & dec_bjp_imm[`E203_XLEN-1]));  //minidecode译码出是其中一种跳转就预测为需要跳转
-  always @(posedge prdt_taken) begin
-      $display("Prediction needs to jump",$time); 
-  end
   
   // The JALR with rs1 == x1 have dependency or xN have dependency
   wire dec_jalr_rs1x0 = (dec_jalr_rs1idx == `E203_RFIDX_WIDTH'd0);   //rs1寄存器的索引是0，则rs1x0记为1
   wire dec_jalr_rs1x1 = (dec_jalr_rs1idx == `E203_RFIDX_WIDTH'd1);   //rs1寄存器的索引是1，则rs1x1记为1
   wire dec_jalr_rs1xn = (~dec_jalr_rs1x0) & (~dec_jalr_rs1x1);  //如果既不是x0也不是x1那就是xn
 
-  wire jalr_rs1x1_dep = dec_i_valid & dec_jalr & dec_jalr_rs1x1 & ((~oitf_empty) | (jalr_rs1idx_cam_irrdidx)); //好像是依赖，如果有依赖就需要等一个周期再预测
-  wire jalr_rs1xn_dep = dec_i_valid & dec_jalr & dec_jalr_rs1xn & ((~oitf_empty) | (~ir_empty));  //好像是判断依赖，如果有依赖就需要等一个周期再预测
+  wire jalr_rs1x1_dep = dec_i_valid & dec_jalr & dec_jalr_rs1x1 & ((~oitf_empty) | (jalr_rs1idx_cam_irrdidx)); //判断依赖
+  wire jalr_rs1xn_dep = dec_i_valid & dec_jalr & dec_jalr_rs1xn & ((~oitf_empty) | (~ir_empty));  //判断依赖
 
                       // If only depend to IR stage (OITF is empty), then if IR is under clearing, or
                           // it does not use RS1 index, then we can also treat it as non-dependency
-  wire jalr_rs1xn_dep_ir_clr = (jalr_rs1xn_dep & oitf_empty & (~ir_empty)) & (ir_valid_clr | (~ir_rs1en));//不懂为什么oitf为空时IR就处于清除状态
-                                                                                                          //不知道清除状态是不是就是IR里面没有指令，如果是那就理解了
-  wire rs1xn_rdrf_r;  //这一段写的应该是要读取通用寄存器的使能信号，看不懂
-  wire rs1xn_rdrf_set = (~rs1xn_rdrf_r) & dec_i_valid & dec_jalr & dec_jalr_rs1xn & ((~jalr_rs1xn_dep) | jalr_rs1xn_dep_ir_clr); //这个说明要读取通用寄存器的值
+  wire jalr_rs1xn_dep_ir_clr = (jalr_rs1xn_dep & oitf_empty & (~ir_empty)) & (ir_valid_clr | (~ir_rs1en));
+  wire rs1xn_rdrf_r;
+  wire rs1xn_rdrf_set = (~rs1xn_rdrf_r) & dec_i_valid & dec_jalr & dec_jalr_rs1xn & ((~jalr_rs1xn_dep) | jalr_rs1xn_dep_ir_clr);
   wire rs1xn_rdrf_clr = rs1xn_rdrf_r;
   wire rs1xn_rdrf_ena = rs1xn_rdrf_set |   rs1xn_rdrf_clr;
   wire rs1xn_rdrf_nxt = rs1xn_rdrf_set | (~rs1xn_rdrf_clr);

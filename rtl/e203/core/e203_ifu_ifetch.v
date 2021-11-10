@@ -30,13 +30,13 @@ module e203_ifu_ifetch(
   output[`E203_PC_SIZE-1:0] inspect_pc,   //当前指令的pc
 
 
-  input  [`E203_PC_SIZE-1:0] pc_rtvec,    //这应该是复位后的默认pc值 默认是32‘b00001000
+  input  [`E203_PC_SIZE-1:0] pc_rtvec,    //这应该是执行复位后的默认pc值 默认是32‘b00001000
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
   // Fetch Interface to memory system, internal protocol
   //    * IFetch REQ channel
-  output ifu_req_valid, // Handshake valid   //ifetch向ift2icb发送一个读写请求信号
-  input  ifu_req_ready, // Handshake ready   //ift2icb向ifetch返回读写接受信号
+  output ifu_req_valid, // Handshake valid   //ifetch向ift2icb发送一个取指请求
+  input  ifu_req_ready, // Handshake ready   //取指成功，等待新的取指请求
             // Note: the req-addr can be unaligned with the length indicated
             //       by req_len signal.
             //       The targetd (ITCM, ICache or Sys-MEM) ctrl modules 
@@ -44,11 +44,11 @@ module e203_ifu_ifetch(
   output [`E203_PC_SIZE-1:0] ifu_req_pc, // Fetch PC  //提供一个pc给ift2icb 这是做完了预测计算后的pc值 下一条指令的pc
   output ifu_req_seq, // This request is a sequential instruction fetch  //这是表示顺序取址的信号  
   output ifu_req_seq_rv32, // This request is incremented 32bits fetch //由译码给出的是32位还是16位指令的标志
-  output [`E203_PC_SIZE-1:0] ifu_req_last_pc, // The last accessed     //应该是当前指令的pc值
+  output [`E203_PC_SIZE-1:0] ifu_req_last_pc, // The last accessed     //刚取回来指令的pc值
                                            // PC address (i.e., pc_r)
   //    * IFetch RSP channel
-  input  ifu_rsp_valid, // Response valid  //ift2icb向ifetch发送读写请求反馈信号
-  output ifu_rsp_ready, // Response ready //ifetch向ift2icb返回读写反馈接受信号
+  input  ifu_rsp_valid, // Response valid  //ift2icb向ifetch发送一个取回的指令
+  output ifu_rsp_ready, // Response ready //取回的指令已经计算完毕，等待新的指令发过来
   input  ifu_rsp_err,   // Response error //读或者写反馈的错误标志指令提示信号
             // Note: the RSP channel always return a valid instruction
             //   fetched from the fetching start PC address.
@@ -62,18 +62,18 @@ module e203_ifu_ifetch(
   // The IR stage to EXU interface
   output [`E203_INSTR_SIZE-1:0] ifu_o_ir,// The instruction register  //由低16位和高16位拼成的指令 发送到指令寄存器
   output [`E203_PC_SIZE-1:0] ifu_o_pc,   // The PC register along with   //当前指令pc值寄存到pc寄存器的值
-  output ifu_o_pc_vld,  //经过alu到commit再到excp模块    //有新的pc写入流水线寄存器
+  output ifu_o_pc_vld,  //流水线寄存器中有新的pc指请求发送到alu，commit和excp模块
   output [`E203_RFIDX_WIDTH-1:0] ifu_o_rs1idx,  //rs1寄存器索引
   output [`E203_RFIDX_WIDTH-1:0] ifu_o_rs2idx,  //rs2寄存器索引
   output ifu_o_prdt_taken,               // The Bxx is predicted as taken  //预测为需要跳转
   output ifu_o_misalgn,                  // The fetch misalign    //取址非对齐异常  //直接是0
   output ifu_o_buserr,                   // The fetch bus error     //取址存储器访问错误  就是取址的时候发送了个err信号进来
-  output ifu_o_muldiv_b2b,               // The mul/div back2back case  //不知道是干麼的
-  output ifu_o_valid, // Handshake signals with EXU stage   //ifetch发送到disp的读写请求信号
-  input  ifu_o_ready,   //disp向ifetch返回的读写请求接受信号
+  output ifu_o_muldiv_b2b,               // The mul/div back2back case  //不知道是干麼的，我猜它是个多周期成除法指令
+  output ifu_o_valid, // Handshake signals with EXU stage   //将流水线寄存器中的指令发送到disp的请求信号
+  input  ifu_o_ready,   //发送到disp的指令执行完毕，等待新的指令发送到disp
 
   output  pipe_flush_ack,  //表示branchslv，excp和longpwbck发送的信号已经接收无误
-  input   pipe_flush_req, //branchslv和excp向ifetch发送的读写请求信号
+  input   pipe_flush_req, //branchslv和excp向ifetch发送的冲刷流水线信号
   input   [`E203_PC_SIZE-1:0] pipe_flush_add_op1,    //冲刷流水线送来的操作数1
   input   [`E203_PC_SIZE-1:0] pipe_flush_add_op2,   //冲刷流水线送来操作数2
   `ifdef E203_TIMING_BOOST//}
@@ -86,7 +86,7 @@ module e203_ifu_ifetch(
   //     instructions and after the oustanding transactions are completed,
   //     asserting the ifu_halt_ack as the response.
   //   The IFU will resume fetching only after the ifu_halt_req is deasserted
-  input  ifu_halt_req,  //excp向ifetch发送的读写请求反馈信号 
+  input  ifu_halt_req,  //excp向ifetch发送的暂停信号
   output ifu_halt_ack,  //表示excp发送来的信号已经接收无误
 
 
@@ -108,8 +108,8 @@ module e203_ifu_ifetch(
 
   wire ifu_req_hsked  = (ifu_req_valid & ifu_req_ready) ;   //ifetch向ift2icb发送读写请求，表示在这个过程中有取址正在进行
   wire ifu_rsp_hsked  = (ifu_rsp_valid & ifu_rsp_ready) ;   //ift2icb向ifetch发送的读写请求，表示在这个过程中取址完成需要把指令信息写入流水线寄存器中
-  wire ifu_ir_o_hsked = (ifu_o_valid & ifu_o_ready) ;    //表示在这个过程将流水线寄存器中的指令发送到disp并在alu执行完了回到disp给了ifetch一个反馈
-  wire pipe_flush_hsked = pipe_flush_req & pipe_flush_ack;  //收到了branchslv，excp和longpwbck的流水线冲刷请求，表示在这个过程中要冲刷流水线
+  wire ifu_ir_o_hsked = (ifu_o_valid & ifu_o_ready) ;    //流水线寄存器中的指令执行完毕
+  wire pipe_flush_hsked = pipe_flush_req & pipe_flush_ack;  //流水线冲刷完毕
 
   
  // The rst_flag is the synced version of rst_n
@@ -155,17 +155,14 @@ module e203_ifu_ifetch(
      //    * Currently the ifetch REQ channel is ready, means
      //        there is no oustanding transactions
   wire ifu_no_outs;  //没有取址正在进行，正在将取址信息写入流水线寄存器
-  assign halt_ack_set = ifu_halt_req & (~halt_ack_r) & ifu_no_outs; //接收到了来自excp暂停请求，且之前不是暂停的状态，就需要设置暂停
+  assign halt_ack_set = ifu_halt_req & (~halt_ack_r) & ifu_no_outs; //如果之前不是暂停状态且收到暂停请求就需要设置暂停
      // The halt_ack_r valid is cleared when 
      //    * Currently halt_ack is asserting
      //    * Currently halt_req is de-asserting
   assign halt_ack_clr = halt_ack_r & (~ifu_halt_req);  //如果之前是暂停状态且没有发来暂停请求，那就要把暂停状态清除
 
   assign halt_ack_ena = halt_ack_set | halt_ack_clr;   //设置暂停和清除暂停都能成为使能
-  assign halt_ack_nxt = halt_ack_set | (~halt_ack_clr);//1.如果之前是暂停状态且没有接收到暂停请求，那就把暂停状态清除改为非暂停状态
-                                                       //2.如果之前是暂停状态且接收到了暂停请求，那就维持原来暂停的状态
-                                                       //3.如果之前不是暂停状态且没有接收暂停请求，那就维持原来非暂停状态
-                                                       //4.如果之前不是暂停状态且接收到暂停请求，那就设置成暂停状态
+  assign halt_ack_nxt = halt_ack_set | (~halt_ack_clr);
   sirv_gnrl_dfflr #(1) halt_ack_dfflr (halt_ack_ena, halt_ack_nxt, halt_ack_r, clk, rst_n);
 
   assign ifu_halt_ack = halt_ack_r;  //如果是1，表示正处于暂停状态
@@ -228,11 +225,11 @@ module e203_ifu_ifetch(
   wire ifu_rsp_need_replay;      //不知道干麼的，接了0
   wire pc_newpend_r;    //下一个pc需要取址的状态
   wire ifu_ir_i_ready;  //当前的pc已经被用来取址了，且已经取址完成了
-  assign ir_valid_set  = ifu_rsp_hsked & (~pipe_flush_req_real) & (~ifu_rsp_need_replay);
+  assign ir_valid_set  = ifu_rsp_hsked & (~pipe_flush_req_real) & (~ifu_rsp_need_replay); //从ift2icb发来了新取的指令
   assign ir_pc_vld_set = pc_newpend_r & ifu_ir_i_ready & (~pipe_flush_req_real) & (~ifu_rsp_need_replay);
      // The ir valid is cleared when it is accepted by EXU stage *or*
      //   the flush happening 
-  assign ir_valid_clr  = ifu_ir_o_hsked | (pipe_flush_hsked & ir_valid_r);
+  assign ir_valid_clr  = ifu_ir_o_hsked | (pipe_flush_hsked & ir_valid_r); //下个周期流水线寄存器中的指令无效
   assign ir_pc_vld_clr = ir_valid_clr;
 
   assign ir_valid_ena  = ir_valid_set  | ir_valid_clr;
@@ -309,21 +306,21 @@ module e203_ifu_ifetch(
   assign ifu_o_prdt_taken = ifu_prdt_taken_r;      //寄存后的预测为需要跳转
   assign ifu_o_muldiv_b2b = ifu_muldiv_b2b_r;      //寄存后的b2b指令
 
-  assign ifu_o_valid  = ir_valid_r;  //有新的指令写入流水线寄存器
-  assign ifu_o_pc_vld = ir_pc_vld_r;   //有新的pc写入流水线寄存器
+  assign ifu_o_valid  = ir_valid_r;  //流水线寄存器中的指令下个周期有效
+  assign ifu_o_pc_vld = ir_pc_vld_r;   //流水线寄存器中的pc下个周期有效
 
   // The IFU-IR stage will be ready when it is empty or under-clearing
-  assign ifu_ir_i_ready   = (~ir_valid_r) | ir_valid_clr; //流水线寄存器中没有指令了
+  assign ifu_ir_i_ready   = (~ir_valid_r) | ir_valid_clr; //下个周期流水线寄存器中的指令无效
 
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
-  // JALR instruction dependency check
-  wire ir_empty = ~ir_valid_r;  //表示流水线寄存器中是空的
+  // JALR instruction dependency check    //这里讲的是流水线寄存器中的指令的译码结果
+  wire ir_empty = ~ir_valid_r;  //流水线寄存器中的指令无效
   wire ir_rs1en = dec2ifu_rs1en; //需要读取rs1的使能
   wire ir_rden = dec2ifu_rden;   //需要写回结果到目的寄存器
   wire [`E203_RFIDX_WIDTH-1:0] ir_rdidx = dec2ifu_rdidx; //来自decode的目的寄存器索引
-  wire [`E203_RFIDX_WIDTH-1:0] minidec_jalr_rs1idx; //来自litebpu的rs1索引
-  wire jalr_rs1idx_cam_irrdidx = ir_rden & (minidec_jalr_rs1idx == ir_rdidx) & ir_valid_r; //存在数据冒险
+  wire [`E203_RFIDX_WIDTH-1:0] minidec_jalr_rs1idx; //来自litebpu的rs1索引 这是刚取回来指令的索引
+  wire jalr_rs1idx_cam_irrdidx = ir_rden & (minidec_jalr_rs1idx == ir_rdidx) & ir_valid_r; //存在数据冒险 这是刚取回来的指令和正在执行的指令有冲突
 
   //////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////
@@ -435,8 +432,8 @@ module e203_ifu_ifetch(
   // If the instruciton is 32bits length, increament 4, otherwise 2
   wire [2:0] pc_incr_ofst = minidec_rv32 ? 3'd4 : 3'd2;  //偏移量，如果是32位就是4如果是16位就是2
 
-  wire [`E203_PC_SIZE-1:0] pc_nxt_pre; //计算没有冲刷流水线时应该使用的pc值
-  wire [`E203_PC_SIZE-1:0] pc_nxt;  //真实情况下的pc值
+  wire [`E203_PC_SIZE-1:0] pc_nxt_pre;
+  wire [`E203_PC_SIZE-1:0] pc_nxt;  //下一条指令的pc值
 
   wire bjp_req = minidec_bjp & prdt_taken;   //译码为跳转信号，预测需要跳转，那这就是一个跳转请求
 
@@ -464,7 +461,7 @@ module e203_ifu_ifetch(
 
   assign ifu_req_seq = (~pipe_flush_req_real) & (~ifu_reset_req) & (~ifetch_replay_req) & (~bjp_req); //没有冲刷流水线，复位，且又不是跳转信号，就表示要顺序取址
   assign ifu_req_seq_rv32 = minidec_rv32;
-  assign ifu_req_last_pc = pc_r;
+  assign ifu_req_last_pc = pc_r; 
 
   assign pc_nxt_pre = pc_add_op1 + pc_add_op2;  //计算下一条指令的pc值
   `ifndef E203_TIMING_BOOST//}
@@ -511,7 +508,7 @@ module e203_ifu_ifetch(
   sirv_gnrl_dfflr #(`E203_PC_SIZE) pc_dfflr (pc_ena, pc_nxt, pc_r, clk, rst_n);
 
 
- assign inspect_pc = pc_r;//这是当前指令的pc值
+ assign inspect_pc = pc_r;//寄存后下一条指令的pc值
 
 
   assign ifu_req_pc    = pc_nxt;//下一条指令的pc

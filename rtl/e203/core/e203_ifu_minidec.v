@@ -26,8 +26,7 @@
 `include "e203_defines.v"
 
 module e203_ifu_minidec(
-
-  //////////////////////////////////主要就是翻译指令/////////////////////////////
+                //译码解析出指令的部分信息
   // The IR stage to Decoder
   input  [`E203_INSTR_SIZE-1:0] instr,  //要进行译码的指令，来自ift2icb模块
   

@@ -492,6 +492,9 @@ module e203_exu_alu_dpath(
   assign agu_req_alu_res     = alu_dpath_res[`E203_XLEN-1:0];
   assign bjp_req_alu_add_res = alu_dpath_res[`E203_XLEN-1:0];
   assign bjp_req_alu_cmp_res = cmp_res;
+  always @ (posedge cmp_res) begin
+    $display("need taken true");
+  end
 `ifdef E203_SUPPORT_SHARE_MULDIV //{
   assign muldiv_req_alu_res  = adder_res;
 `endif//E203_SUPPORT_SHARE_MULDIV}

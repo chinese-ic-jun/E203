@@ -116,7 +116,7 @@ module e203_ifu(
   input  dec2ifu_rden,    //写指令需要写结果操作数到目的寄存器 由disp给出
   input  dec2ifu_rs1en,   //该指令需要读取原操作数1 由disp给出
   input  [`E203_RFIDX_WIDTH-1:0] dec2ifu_rdidx, //目的寄存器索引 由执行中decode给出
-  input  dec2ifu_mulhsu,  //指令为 mulh或mulhsu或mulhu，这些乘法指令都把结果的高32位放到目的寄存器 //由执行模块的decode给出，送到ifetch计算是否是ifu_o_muldiv_b2b指令
+  input  dec2ifu_mulhsu,  //指令为mulhsu，这些乘法指令都把结果的高32位放到目的寄存器 //由执行模块的decode给出，送到ifetch计算是否是ifu_o_muldiv_b2b指令
   input  dec2ifu_div   ,  //指令为除法指令
   input  dec2ifu_rem   ,  //指令为取余数指令
   input  dec2ifu_divu  ,  //指令为无符号除法指令

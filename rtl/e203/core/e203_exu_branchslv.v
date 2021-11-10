@@ -27,7 +27,10 @@
 `include "e203_defines.v"
 
 
-module e203_exu_branchslv(
+module e203_exu_branchslv(  //分支解析：1.接收来自alu分支运算的数据
+                            //        2.计算是否需要进行流水线冲刷
+                            //        3.发送流水线冲刷信号给ifetch
+                            //        4.给csr使能改变中断的状态
 
   //   The BJP condition final result need to be resolved at ALU
   input  cmt_i_valid,  //接收到来自alu的握手请求
@@ -47,16 +50,16 @@ module e203_exu_branchslv(
 
 
   input  nonalu_excpirq_flush_req_raw,  //来自excp
-  input  brchmis_flush_ack,   //可能是来自ifetch的握手信号 总是1
-  output brchmis_flush_req,   //反馈信号
+  input  brchmis_flush_ack,   //冲刷完毕，能够接收新的冲刷请求
+  output brchmis_flush_req,   //冲刷请求，发送给ifetch
   output [`E203_PC_SIZE-1:0] brchmis_flush_add_op1,  //应该是冲刷流水线后的操作数 发送给ifetch
   output [`E203_PC_SIZE-1:0] brchmis_flush_add_op2,  //应该是冲刷流水线后的操作数 发送给ifetch
   `ifdef E203_TIMING_BOOST//}
   output [`E203_PC_SIZE-1:0] brchmis_flush_pc,  //应该是冲刷流水线后的pc值 发送给ifetch
   `endif//}
 
-  output  cmt_mret_ena, //发送给csr，不知道干麼的
-  output  cmt_dret_ena, //发送给excp，不知道干麼的
+  output  cmt_mret_ena, //发送给csr，
+  output  cmt_dret_ena, //发送给excp，
   output  cmt_fencei_ena, //悬空了
 
   input  clk,
@@ -66,8 +69,8 @@ module e203_exu_branchslv(
   wire brchmis_flush_ack_pre;  //与ifetch握手成功
   wire brchmis_flush_req_pre;   //握手成功并产生流水线冲刷请求
 
-  assign brchmis_flush_req = brchmis_flush_req_pre & (~nonalu_excpirq_flush_req_raw);
-  assign brchmis_flush_ack_pre = brchmis_flush_ack & (~nonalu_excpirq_flush_req_raw);
+  assign brchmis_flush_req = brchmis_flush_req_pre & (~nonalu_excpirq_flush_req_raw);  //需要进行冲刷且没有异常发生
+  assign brchmis_flush_ack_pre = brchmis_flush_ack & (~nonalu_excpirq_flush_req_raw);  //冲刷完毕，能够接收新的冲刷请求
   // In Two stage impelmentation, several branch instructions are handled as below:
   //   * It is predicted at IFU, and target is handled in IFU. But 
   //             we need to check if it is predicted correctly or not. If not,
@@ -91,7 +94,7 @@ module e203_exu_branchslv(
        | cmt_i_dret 
       );
 
-  assign brchmis_flush_req_pre = cmt_i_valid & brchmis_need_flush;  //握手成功并产生流水线冲刷请求
+  assign brchmis_flush_req_pre = cmt_i_valid & brchmis_need_flush;  //alu发送来需要分支解析的数据且解析出需要进行冲刷，那就进行流水线冲刷
 
   // * If it is a DRET instruction, the new target PC is DPC register
   // * If it is a RET instruction, the new target PC is EPC register
@@ -115,8 +118,8 @@ module e203_exu_branchslv(
                                                   //   to save gatecount and timing
   `endif//}
 
-  wire brchmis_flush_hsked = brchmis_flush_req & brchmis_flush_ack;
-  assign cmt_mret_ena = cmt_i_mret & brchmis_flush_hsked; //造成了流水线冲刷，应该是要发给csr取读取mepc的值
+  wire brchmis_flush_hsked = brchmis_flush_req & brchmis_flush_ack; //有流水线冲刷正在进行
+  assign cmt_mret_ena = cmt_i_mret & brchmis_flush_hsked; //造成了流水线冲刷，应该是要发给csr改变中断的状态
   assign cmt_dret_ena = cmt_i_dret & brchmis_flush_hsked; //造成了流水线冲刷，应该是要发给excp取读取dpc的值
   assign cmt_fencei_ena = cmt_i_fencei & brchmis_flush_hsked;
 

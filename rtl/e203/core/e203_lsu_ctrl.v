@@ -26,8 +26,8 @@
 `include "e203_defines.v"
 
 module e203_lsu_ctrl(
-  input  commit_mret, //来自exu
-  input  commit_trap, //来自exu
+  input  commit_mret, //来自exu 退出异常
+  input  commit_trap, //来自exu 进入异常
   output lsu_ctrl_active, //发送到exu
   `ifdef E203_HAS_ITCM //{
   input [`E203_ADDR_SIZE-1:0] itcm_region_indic,
